@@ -1,0 +1,2059 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NISA Presentation</title>
+<style>
+/* ==========================================================================
+   NISA Presentation Design System
+   - Financial theme: Trust blue + Accent green/gold
+   - Modern gradients, shadows, smooth animations
+   ========================================================================== */
+
+/* ---------- Reset & Base ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Primary palette – trust & authority */
+  --blue-900: #0a1628;
+  --blue-800: #0f2044;
+  --blue-700: #152d5a;
+  --blue-600: #1a3a6e;
+  --blue-500: #2563eb;
+  --blue-400: #3b82f6;
+  --blue-300: #60a5fa;
+  --blue-200: #93c5fd;
+  --blue-100: #dbeafe;
+  --blue-50:  #eff6ff;
+
+  /* Accent – growth & prosperity */
+  --green-600: #059669;
+  --green-500: #10b981;
+  --green-400: #34d399;
+  --green-300: #6ee7b7;
+  --green-100: #d1fae5;
+
+  --gold-600: #b45309;
+  --gold-500: #d97706;
+  --gold-400: #f59e0b;
+  --gold-300: #fbbf24;
+  --gold-200: #fde68a;
+  --gold-100: #fef3c7;
+
+  /* Neutrals */
+  --gray-900: #111827;
+  --gray-800: #1f2937;
+  --gray-700: #374151;
+  --gray-600: #4b5563;
+  --gray-500: #6b7280;
+  --gray-400: #9ca3af;
+  --gray-300: #d1d5db;
+  --gray-200: #e5e7eb;
+  --gray-100: #f3f4f6;
+  --gray-50:  #f9fafb;
+  --white:    #ffffff;
+
+  /* Semantic */
+  --danger:  #ef4444;
+  --warning: #f59e0b;
+  --success: #10b981;
+  --info:    #3b82f6;
+
+  /* Gradients */
+  --grad-hero:    linear-gradient(135deg, var(--blue-900) 0%, var(--blue-700) 50%, var(--blue-600) 100%);
+  --grad-card:    linear-gradient(145deg, var(--white) 0%, var(--blue-50) 100%);
+  --grad-accent:  linear-gradient(135deg, var(--blue-500) 0%, var(--green-500) 100%);
+  --grad-gold:    linear-gradient(135deg, var(--gold-400) 0%, var(--gold-300) 100%);
+  --grad-surface: linear-gradient(180deg, var(--gray-50) 0%, var(--white) 100%);
+
+  /* Shadows */
+  --shadow-sm:  0 1px 2px rgba(0,0,0,.05);
+  --shadow-md:  0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -2px rgba(0,0,0,.05);
+  --shadow-lg:  0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.04);
+  --shadow-xl:  0 20px 25px -5px rgba(0,0,0,.08), 0 8px 10px -6px rgba(0,0,0,.04);
+  --shadow-glow-blue:  0 0 30px rgba(37,99,235,.25);
+  --shadow-glow-green: 0 0 20px rgba(16,185,129,.2);
+  --shadow-glow-gold:  0 0 20px rgba(251,191,36,.25);
+
+  /* Typography */
+  --font-sans: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+
+  /* Spacing */
+  --slide-padding: 60px;
+
+  /* Transitions */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-slide: 500ms;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  background: var(--blue-900);
+  color: var(--gray-800);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Presentation Container ---------- */
+.presentation {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ---------- Slide Base ---------- */
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--slide-padding);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(60px);
+  transition:
+    opacity var(--duration-slide) var(--ease-out-expo),
+    transform var(--duration-slide) var(--ease-out-expo),
+    visibility 0s var(--duration-slide);
+  background: var(--grad-surface);
+  overflow-y: auto;
+}
+
+.slide.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  transition:
+    opacity var(--duration-slide) var(--ease-out-expo),
+    transform var(--duration-slide) var(--ease-out-expo),
+    visibility 0s 0s;
+  z-index: 1;
+}
+
+.slide.prev {
+  transform: translateX(-60px);
+}
+
+/* ---------- Slide Variants ---------- */
+
+/* Title Slide */
+.slide--title {
+  background: var(--grad-hero);
+  color: var(--white);
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide--title::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 80%;
+  height: 200%;
+  background: radial-gradient(ellipse at center, rgba(59,130,246,.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.slide--title::after {
+  content: "";
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 60%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, rgba(16,185,129,.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.slide--title .title-main {
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.slide--title .title-sub {
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-weight: 400;
+  opacity: .75;
+  position: relative;
+  z-index: 1;
+}
+
+.slide--title .title-badge {
+  display: inline-block;
+  background: var(--grad-accent);
+  padding: 8px 24px;
+  border-radius: 100px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.slide--title .title-meta {
+  margin-top: 32px;
+  font-size: 0.95rem;
+  opacity: .6;
+  position: relative;
+  z-index: 1;
+}
+
+/* Dark Slide (for section breaks) */
+.slide--dark {
+  background: var(--grad-hero);
+  color: var(--white);
+}
+
+/* Summary / Ending Slide */
+.slide--summary {
+  background: var(--grad-hero);
+  color: var(--white);
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+}
+
+.slide--summary .summary-icon {
+  font-size: 3rem;
+  margin-bottom: 20px;
+}
+
+.slide--summary .summary-heading {
+  font-size: clamp(1.5rem, 3.5vw, 2.5rem);
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.slide--summary .summary-list {
+  list-style: none;
+  text-align: left;
+  display: inline-block;
+  margin-bottom: 32px;
+}
+
+.slide--summary .summary-list li {
+  padding: 10px 0;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: .9;
+}
+
+.slide--summary .summary-list li::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green-400);
+  flex-shrink: 0;
+}
+
+.slide--summary .summary-cta {
+  display: inline-block;
+  background: var(--grad-gold);
+  color: var(--blue-900);
+  padding: 14px 40px;
+  border-radius: 100px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 16px;
+  box-shadow: var(--shadow-glow-gold);
+}
+
+/* ---------- Typography ---------- */
+.slide-heading {
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 700;
+  color: var(--blue-800);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.slide--dark .slide-heading,
+.slide--summary .slide-heading {
+  color: var(--white);
+}
+
+.slide-subheading {
+  font-size: 1rem;
+  color: var(--gray-500);
+  margin-bottom: 36px;
+  font-weight: 400;
+}
+
+.slide--dark .slide-subheading {
+  color: var(--blue-200);
+}
+
+.slide p, .slide li {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: var(--gray-700);
+}
+
+.slide--dark p, .slide--dark li {
+  color: var(--blue-100);
+}
+
+.text-accent  { color: var(--blue-500); }
+.text-green   { color: var(--green-500); }
+.text-gold    { color: var(--gold-500); }
+.text-danger  { color: var(--danger); }
+.text-bold    { font-weight: 700; }
+.text-large   { font-size: 1.3em; }
+.text-small   { font-size: 0.85em; }
+.text-muted   { color: var(--gray-500); }
+.text-center  { text-align: center; }
+
+.tag {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.tag--blue  { background: var(--blue-100); color: var(--blue-600); }
+.tag--green { background: var(--green-100); color: var(--green-600); }
+.tag--gold  { background: var(--gold-100); color: var(--gold-600); }
+
+/* ---------- Layout Helpers ---------- */
+.slide-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.col      { flex: 1; min-width: 0; }
+.col-auto { flex: none; }
+.col-2    { flex: 2; min-width: 0; }
+
+.gap-sm { gap: 12px; }
+.gap-md { gap: 24px; }
+.gap-lg { gap: 40px; }
+
+.mt-sm { margin-top: 12px; }
+.mt-md { margin-top: 24px; }
+.mt-lg { margin-top: 40px; }
+.mb-sm { margin-bottom: 12px; }
+.mb-md { margin-bottom: 24px; }
+.mb-lg { margin-bottom: 40px; }
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--gray-200);
+  transition: transform 0.3s var(--ease-out-expo), box-shadow 0.3s var(--ease-out-expo);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.card--bordered-blue {
+  border-left: 4px solid var(--blue-500);
+}
+
+.card--bordered-green {
+  border-left: 4px solid var(--green-500);
+}
+
+.card--bordered-gold {
+  border-left: 4px solid var(--gold-400);
+}
+
+.card--dark {
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.1);
+  color: var(--white);
+}
+
+.card--dark:hover {
+  background: rgba(255,255,255,.1);
+}
+
+.card__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 8px;
+}
+
+.card--dark .card__title {
+  color: var(--white);
+}
+
+.card__text {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  line-height: 1.7;
+}
+
+.card--dark .card__text {
+  color: var(--blue-200);
+}
+
+/* ---------- Number Highlight Card ---------- */
+.num-card {
+  background: var(--grad-card);
+  border-radius: 16px;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--gray-200);
+  transition: transform 0.3s var(--ease-out-expo), box-shadow 0.3s var(--ease-out-expo);
+}
+
+.num-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-xl);
+}
+
+.num-card__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+.num-card__value {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  background: var(--grad-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.1;
+}
+
+.num-card__value--gold {
+  background: var(--grad-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.num-card__unit {
+  font-size: 0.75em;
+}
+
+.num-card__note {
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  margin-top: 6px;
+}
+
+/* ---------- Comparison Table ---------- */
+.compare-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  font-size: 0.95rem;
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 14px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.compare-table thead th {
+  background: var(--blue-800);
+  color: var(--white);
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+.compare-table thead th:first-child {
+  background: var(--blue-900);
+}
+
+.compare-table thead th.col-highlight {
+  background: var(--blue-500);
+  position: relative;
+}
+
+.compare-table thead th.col-highlight::before {
+  content: "NEW";
+  position: absolute;
+  top: -1px;
+  right: 12px;
+  background: var(--gold-400);
+  color: var(--blue-900);
+  font-size: 0.6rem;
+  padding: 2px 8px;
+  border-radius: 0 0 6px 6px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.compare-table tbody tr {
+  background: var(--white);
+  transition: background 0.2s;
+}
+
+.compare-table tbody tr:hover {
+  background: var(--blue-50);
+}
+
+.compare-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.compare-table tbody th {
+  background: var(--gray-50);
+  font-weight: 600;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.compare-table .cell-highlight {
+  background: rgba(37,99,235,.05);
+  font-weight: 600;
+  color: var(--blue-600);
+}
+
+.compare-table .cell-good {
+  color: var(--green-600);
+  font-weight: 600;
+}
+
+.compare-table .cell-bad {
+  color: var(--danger);
+}
+
+/* ---------- Timeline ---------- */
+.timeline {
+  position: relative;
+  padding-left: 40px;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: linear-gradient(180deg, var(--blue-400), var(--green-400));
+  border-radius: 3px;
+}
+
+.timeline__item {
+  position: relative;
+  padding-bottom: 32px;
+}
+
+.timeline__item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline__item::before {
+  content: "";
+  position: absolute;
+  left: -29px;
+  top: 6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 3px solid var(--blue-400);
+  z-index: 1;
+}
+
+.timeline__item--active::before {
+  background: var(--blue-500);
+  border-color: var(--blue-500);
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.timeline__item--done::before {
+  background: var(--green-500);
+  border-color: var(--green-500);
+}
+
+.timeline__year {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--blue-500);
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+
+.timeline__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 4px;
+}
+
+.timeline__desc {
+  font-size: 0.9rem;
+  color: var(--gray-500);
+  line-height: 1.6;
+}
+
+/* ---------- CSS Bar Chart ---------- */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  height: 220px;
+  padding: 0 8px;
+}
+
+.bar-chart__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.bar-chart__bar {
+  width: 100%;
+  max-width: 60px;
+  border-radius: 8px 8px 2px 2px;
+  background: var(--grad-accent);
+  position: relative;
+  transition: height 0.8s var(--ease-out-expo);
+  min-height: 4px;
+}
+
+.bar-chart__bar--gold {
+  background: var(--grad-gold);
+}
+
+.bar-chart__bar--blue {
+  background: linear-gradient(180deg, var(--blue-400), var(--blue-600));
+}
+
+.bar-chart__bar--green {
+  background: linear-gradient(180deg, var(--green-400), var(--green-600));
+}
+
+.bar-chart__value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+}
+
+.bar-chart__label {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin-top: 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ---------- CSS Donut / Pie Chart ---------- */
+.donut-chart {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  margin: 0 auto;
+}
+
+.donut-chart svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.donut-chart circle {
+  fill: none;
+  stroke-width: 18;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s var(--ease-out-expo);
+}
+
+.donut-chart__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.donut-chart__center-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--gray-800);
+}
+
+.donut-chart__center-label {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+}
+
+.donut-chart__legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.donut-chart__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--gray-600);
+}
+
+.donut-chart__legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ---------- Stacked Area (SVG) ---------- */
+.area-chart {
+  width: 100%;
+  height: 200px;
+}
+
+.area-chart svg {
+  width: 100%;
+  height: 100%;
+}
+
+.area-chart__area {
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+.area-chart__line {
+  fill: none;
+  stroke-width: 2;
+}
+
+/* ---------- Horizontal Bar ---------- */
+.hbar {
+  margin-bottom: 16px;
+}
+
+.hbar__label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+
+.hbar__label-text {
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.hbar__label-value {
+  font-weight: 700;
+  color: var(--blue-600);
+}
+
+.hbar__track {
+  width: 100%;
+  height: 12px;
+  background: var(--gray-200);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.hbar__fill {
+  height: 100%;
+  border-radius: 10px;
+  background: var(--grad-accent);
+  transition: width 1s var(--ease-out-expo);
+}
+
+.hbar__fill--gold {
+  background: var(--grad-gold);
+}
+
+.hbar__fill--green {
+  background: linear-gradient(90deg, var(--green-400), var(--green-600));
+}
+
+/* ---------- Callout / Alert ---------- */
+.callout {
+  display: flex;
+  gap: 14px;
+  padding: 18px 22px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  align-items: flex-start;
+}
+
+.callout--info {
+  background: var(--blue-50);
+  border: 1px solid var(--blue-200);
+  color: var(--blue-800);
+}
+
+.callout--success {
+  background: var(--green-100);
+  border: 1px solid var(--green-300);
+  color: #065f46;
+}
+
+.callout--warning {
+  background: var(--gold-100);
+  border: 1px solid var(--gold-200);
+  color: #92400e;
+}
+
+.callout--danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.callout__icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+/* ---------- List Styles ---------- */
+.check-list {
+  list-style: none;
+  padding: 0;
+}
+
+.check-list li {
+  padding: 8px 0;
+  padding-left: 32px;
+  position: relative;
+  font-size: 1.05rem;
+}
+
+.check-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--green-500);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z'/%3E%3C/svg%3E");
+  background-size: 14px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.num-list {
+  list-style: none;
+  padding: 0;
+  counter-reset: numlist;
+}
+
+.num-list li {
+  padding: 10px 0;
+  padding-left: 44px;
+  position: relative;
+  font-size: 1.05rem;
+  counter-increment: numlist;
+}
+
+.num-list li::before {
+  content: counter(numlist);
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--grad-accent);
+  color: var(--white);
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- Divider ---------- */
+.divider {
+  height: 1px;
+  background: var(--gray-200);
+  border: none;
+  margin: 24px 0;
+}
+
+.divider--accent {
+  height: 3px;
+  background: var(--grad-accent);
+  border-radius: 3px;
+  width: 60px;
+}
+
+/* ---------- Icon Circle ---------- */
+.icon-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.icon-circle--blue  { background: var(--blue-100); }
+.icon-circle--green { background: var(--green-100); }
+.icon-circle--gold  { background: var(--gold-100); }
+
+/* ---------- Stagger Animation ---------- */
+.slide.active .stagger > * {
+  animation: fadeSlideUp 0.6s var(--ease-out-expo) both;
+}
+
+.slide.active .stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.slide.active .stagger > *:nth-child(2) { animation-delay: 0.12s; }
+.slide.active .stagger > *:nth-child(3) { animation-delay: 0.19s; }
+.slide.active .stagger > *:nth-child(4) { animation-delay: 0.26s; }
+.slide.active .stagger > *:nth-child(5) { animation-delay: 0.33s; }
+.slide.active .stagger > *:nth-child(6) { animation-delay: 0.40s; }
+.slide.active .stagger > *:nth-child(7) { animation-delay: 0.47s; }
+.slide.active .stagger > *:nth-child(8) { animation-delay: 0.54s; }
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Progress Bar ---------- */
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: var(--grad-accent);
+  z-index: 1000;
+  transition: width 0.4s var(--ease-out-expo);
+  box-shadow: 0 0 8px rgba(37,99,235,.4);
+}
+
+/* ---------- Slide Number ---------- */
+.slide-number {
+  position: fixed;
+  bottom: 20px;
+  right: 28px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gray-400);
+  z-index: 100;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.slide--dark ~ .slide-number,
+.slide--title ~ .slide-number,
+.slide--summary ~ .slide-number {
+  color: rgba(255,255,255,.4);
+}
+
+/* Override slide number color based on active slide */
+body.dark-slide .slide-number {
+  color: rgba(255,255,255,.4);
+}
+
+/* ---------- Navigation Arrows ---------- */
+.nav-arrows {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.presentation:hover .nav-arrows {
+  opacity: 1;
+}
+
+.nav-arrows button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,.15);
+  backdrop-filter: blur(8px);
+  color: var(--white);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.nav-arrows button:hover {
+  background: rgba(0,0,0,.3);
+}
+
+.nav-arrows button svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* ---------- Keyboard Hint ---------- */
+.keyboard-hint {
+  position: fixed;
+  bottom: 20px;
+  left: 28px;
+  display: flex;
+  gap: 16px;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.presentation:hover .keyboard-hint {
+  opacity: 1;
+}
+
+.keyboard-hint__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: var(--gray-400);
+  user-select: none;
+}
+
+body.dark-slide .keyboard-hint__item {
+  color: rgba(255,255,255,.35);
+}
+
+.keyboard-hint__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,.08);
+  font-weight: 600;
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+body.dark-slide .keyboard-hint__key {
+  background: rgba(255,255,255,.12);
+}
+
+/* ---------- Overview Mode ---------- */
+.overview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,22,40,.92);
+  backdrop-filter: blur(12px);
+  z-index: 2000;
+  display: none;
+  overflow-y: auto;
+  padding: 40px;
+}
+
+.overview-overlay.active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.overview-grid__item {
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  border: 3px solid transparent;
+  transition: border-color 0.2s, transform 0.2s;
+  background: var(--white);
+  box-shadow: var(--shadow-lg);
+}
+
+.overview-grid__item:hover {
+  transform: scale(1.03);
+  border-color: var(--blue-400);
+}
+
+.overview-grid__item.current {
+  border-color: var(--gold-400);
+}
+
+.overview-grid__item-inner {
+  width: 100%;
+  height: 100%;
+  transform-origin: top left;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.overview-grid__label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 12px;
+  background: linear-gradient(transparent, rgba(0,0,0,.7));
+  color: var(--white);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.overview-title {
+  color: var(--white);
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 28px;
+  opacity: .7;
+}
+
+/* ---------- Fullscreen ---------- */
+:-webkit-full-screen {
+  background: var(--white);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  :root {
+    --slide-padding: 36px;
+  }
+
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .row {
+    flex-direction: column;
+  }
+
+  .compare-table {
+    font-size: 0.8rem;
+  }
+
+  .compare-table th,
+  .compare-table td {
+    padding: 10px 12px;
+  }
+
+  .bar-chart {
+    height: 160px;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --slide-padding: 24px;
+  }
+
+  .slide-heading {
+    font-size: 1.4rem;
+  }
+
+  .num-card__value {
+    font-size: 1.8rem;
+  }
+
+  .overview-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+}
+
+/* ---------- Print ---------- */
+@media print {
+  .slide {
+    position: relative;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    page-break-after: always;
+    min-height: 100vh;
+  }
+
+  .progress-bar,
+  .slide-number,
+  .nav-arrows,
+  .keyboard-hint,
+  .overview-overlay {
+    display: none !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="presentation" id="presentation">
+  <!-- ===== Slide 1: Title ===== -->
+  <div class="slide slide--title active">
+    <span class="title-badge">2024年 制度改正対応</span>
+    <h1 class="title-main">新しいNISAを<br>はじめよう</h1>
+    <p class="title-sub">非課税で資産形成 ― 制度のしくみから活用法まで</p>
+    <div class="title-meta">個人投資家のための完全ガイド</div>
+  </div>
+
+  <!-- ===== Slide 2: アジェンダ ===== -->
+  <div class="slide">
+    <div class="slide-content stagger">
+      <h2 class="slide-heading">本日のアジェンダ</h2>
+      <div class="divider--accent divider"></div>
+      <p class="slide-subheading">NISAの全体像を4つのパートで解説します</p>
+      <div class="grid-2 mt-md">
+        <div class="card card--bordered-blue">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+            <div class="icon-circle icon-circle--blue">📋</div>
+            <div class="card__title">1. NISAとは？</div>
+          </div>
+          <div class="card__text">非課税投資制度の基本的なしくみと背景を理解する</div>
+        </div>
+        <div class="card card--bordered-green">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+            <div class="icon-circle icon-circle--green">🔄</div>
+            <div class="card__title">2. 新NISA vs 旧NISA</div>
+          </div>
+          <div class="card__text">2024年からの制度改正ポイントと変更点を比較</div>
+        </div>
+        <div class="card card--bordered-gold">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+            <div class="icon-circle icon-circle--gold">💰</div>
+            <div class="card__title">3. 投資枠と活用術</div>
+          </div>
+          <div class="card__text">つみたて投資枠・成長投資枠の使い分けと戦略</div>
+        </div>
+        <div class="card card--bordered-blue">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+            <div class="icon-circle icon-circle--blue">🚀</div>
+            <div class="card__title">4. 始め方ガイド</div>
+          </div>
+          <div class="card__text">口座開設から商品選びまでの具体的なステップ</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 3: NISAとは ===== -->
+  <div class="slide slide--dark">
+    <div class="slide-content stagger">
+      <span class="tag tag--blue">Part 1</span>
+      <h2 class="slide-heading mt-sm">NISAとは？</h2>
+      <div class="divider--accent divider" style="background:var(--grad-accent)"></div>
+      <p class="slide-subheading">少額投資非課税制度（Nippon Individual Savings Account）</p>
+      <div class="grid-3 mt-md">
+        <div class="card card--dark">
+          <div class="card__title">🏛️ 制度の目的</div>
+          <div class="card__text">「貯蓄から投資へ」の流れを促進し、家計の安定的な資産形成を支援する国の制度</div>
+        </div>
+        <div class="card card--dark">
+          <div class="card__title">🎯 対象者</div>
+          <div class="card__text">日本在住の18歳以上のすべての方。1人1口座のみ開設可能</div>
+        </div>
+        <div class="card card--dark">
+          <div class="card__title">✨ 最大のメリット</div>
+          <div class="card__text">投資で得た利益（配当金・売却益）が<strong style="color:var(--gold-300)">非課税</strong>になる</div>
+        </div>
+      </div>
+      <div class="callout callout--info mt-md" style="background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3);color:var(--blue-100)">
+        <span class="callout__icon">💡</span>
+        <div>通常、投資の利益には約<strong>20.315%</strong>の税金がかかります。NISAを使えば、この税金が<strong>ゼロ</strong>に！</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 4: 非課税メリットの具体例 ===== -->
+  <div class="slide">
+    <div class="slide-content stagger">
+      <h2 class="slide-heading">非課税メリットの具体例</h2>
+      <div class="divider--accent divider"></div>
+      <p class="slide-subheading">100万円の利益が出た場合の比較</p>
+      <div class="grid-2 mt-md">
+        <div class="num-card">
+          <div class="num-card__label">通常の課税口座</div>
+          <div class="num-card__value" style="background:var(--gray-400);-webkit-background-clip:text;background-clip:text">
+            ▲ 203,150<span class="num-card__unit">円</span>
+          </div>
+          <div class="num-card__note">利益100万円 × 20.315% = 税金約20万円</div>
+        </div>
+        <div class="num-card" style="border:2px solid var(--green-400)">
+          <div class="num-card__label">NISA口座</div>
+          <div class="num-card__value">
+            0<span class="num-card__unit">円</span>
+          </div>
+          <div class="num-card__note" style="color:var(--green-600);font-weight:600">税金ゼロ！利益がまるごと手元に</div>
+        </div>
+      </div>
+      <div class="callout callout--success mt-md">
+        <span class="callout__icon">🎉</span>
+        <div>20年間つみたてた場合、非課税メリットは<strong>数十万〜数百万円</strong>にもなります</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 5: 新NISA制度の概要（2024年〜） ===== -->
+  <div class="slide">
+    <div class="slide-content stagger">
+      <span class="tag tag--green">Part 2</span>
+      <h2 class="slide-heading mt-sm">新NISA制度の全体像</h2>
+      <div class="divider--accent divider"></div>
+      <p class="slide-subheading">2024年1月スタート ― 大幅に拡充された新制度</p>
+      <div class="grid-4 mt-md">
+        <div class="num-card">
+          <div class="num-card__label">年間投資枠</div>
+          <div class="num-card__value">360<span class="num-card__unit">万円</span></div>
+          <div class="num-card__note">つみたて120万 + 成長240万</div>
+        </div>
+        <div class="num-card">
+          <div class="num-card__label">生涯投資枠</div>
+          <div class="num-card__value num-card__value--gold">1,800<span class="num-card__unit">万円</span></div>
+          <div class="num-card__note">簿価（取得価額）ベース</div>
+        </div>
+        <div class="num-card">
+          <div class="num-card__label">非課税期間</div>
+          <div class="num-card__value">無期限</div>
+          <div class="num-card__note">旧制度：5年 or 20年</div>
+        </div>
+        <div class="num-card">
+          <div class="num-card__label">制度期間</div>
+          <div class="num-card__value">恒久化</div>
+          <div class="num-card__note">旧制度：期限あり</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 6: 旧NISAとの比較表 ===== -->
+  <div class="slide">
+    <div class="slide-content stagger">
+      <h2 class="slide-heading">旧NISA vs 新NISA 比較</h2>
+      <div class="divider--accent divider"></div>
+      <table class="compare-table mt-md">
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>旧・つみたてNISA</th>
+            <th>旧・一般NISA</th>
+            <th class="col-highlight">新NISA</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>年間投資枠</th>
+            <td>40万円</td>
+            <td>120万円</td>
+            <td class="cell-highlight">360万円</td>
+          </tr>
+          <tr>
+            <th>非課税期間</th>
+            <td>20年</td>
+            <td>5年</td>
+            <td class="cell-good">無期限</td>
+          </tr>
+          <tr>
+            <th>投資枠の併用</th>
+            <td class="cell-bad">不可</td>
+            <td class="cell-bad">不可</td>
+            <td class="cell-good">併用OK</td>
+          </tr>
+          <tr>
+            <th>生涯投資枠</th>
+            <td>800万円</td>
+            <td>600万円</td>
+            <td class="cell-highlight">1,800万円</td>
+          </tr>
+          <tr>
+            <th>枠の再利用</th>
+            <td class="cell-bad">不可</td>
+            <td class="cell-bad">不可</td>
+            <td class="cell-good">売却で翌年復活</td>
+          </tr>
+          <tr>
+            <th>制度の期限</th>
+            <td>2042年まで</td>
+            <td>2023年で終了</td>
+            <td class="cell-good">恒久化</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== Slide 7: 2つの投資枠 ===== -->
+  <div class="slide slide--dark">
+    <div class="slide-content stagger">
+      <span class="tag tag--gold">Part 3</span>
+      <h2 class="slide-heading mt-sm">2つの投資枠を使いこなす</h2>
+      <div class="divider--accent divider" style="background:var(--grad-accent)"></div>
+      <div class="grid-2 mt-md gap-lg">
+        <div class="card card--dark" style="border-top:4px solid var(--blue-400)">
+          <div style="text-align:center;margin-bottom:16px">
+            <div style="font-size:2.5rem">📦</div>
+            <div style="font-size:1.3rem;font-weight:700;margin-top:8px">つみたて投資枠</div>
+            <div class="tag tag--blue" style="margin-top:8px">年間120万円</div>
+          </div>
+          <hr class="divider" style="background:rgba(255,255,255,.1)">
+          <ul class="check-list" style="margin-top:16px">
+            <li>長期・積立・分散投資に適した投資信託</li>
+            <li>金融庁が厳選した低コスト商品</li>
+            <li>初心者に最適なスタート</li>
+          </ul>
+        </div>
+        <div class="card card--dark" style="border-top:4px solid var(--gold-400)">
+          <div style="text-align:center;margin-bottom:16px">
+            <div style="font-size:2.5rem">📈</div>
+            <div style="font-size:1.3rem;font-weight:700;margin-top:8px">成長投資枠</div>
+            <div class="tag tag--gold" style="margin-top:8px">年間240万円</div>
+          </div>
+          <hr class="divider" style="background:rgba(255,255,255,.1)">
+          <ul class="check-list" style="margin-top:16px">
+            <li>上場株式・ETF・REIT・投資信託</li>
+            <li>幅広い投資商品が対象</li>
+            <li>一括投資も積立投資もOK</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 8: 生涯投資枠のイメージ ===== -->
+  <div class="slide">
+    <div class="slide-content stagger">
+      <h2 class="slide-heading">生涯投資枠 1,800万円の活用イメージ</h2>
+      <div class="divider--accent divider"></div>
+      <p class="slide-subheading">年間360万円ずつ投資すると、最短5年で枠を使い切れます</p>
+      <div class="bar-chart mt-md" style="height:250px">
+        <div class="bar-chart__col">
+          <div class="bar-chart__value">360万</div>
+          <div class="bar-chart__bar bar-chart__bar--blue" data-height="20%" style="height:0"></div>
+          <div class="bar-chart__label">1年目</div>
+        </div>
+        <div class="bar-chart__col">
+          <div class="bar-chart__value">720万</div>
+          <div class="bar-chart__bar bar-chart__bar--blue" data-height="40%" style="height:0"></div>
+          <div class="bar-chart__label">2年目</div>
+        </div>
+        <div class="bar-chart__col">
+          <div class="bar-chart__value">1,080万</div>
+          <div class="bar-chart__bar bar-chart__bar--blue" data-height="60%" style="height:0"></div>
+          <div class="bar-chart__label">3年目</div>
+        </div>
+        <div class="bar-chart__col">
+          <div class="bar-chart__value">1,440万</div>
+          <div class="bar-chart__bar bar-chart__bar--green" data-height="80%" style="height:0"></div>
+          <div class="bar-chart__label">4年目</div>
+        </div>
+        <div class="bar-chart__col">
+          <div class="bar-chart__value">1,800万</div>
+          <div class="bar-chart__bar bar-chart__bar--gold" data-height="100%" style="height:0"></div>
+          <div class="bar-chart__label">5年目</div>
+        </div>
+      </div>
+      <div class="callout callout--info mt-md">
+        <span class="callout__icon">🔄</span>
+        <div>売却すると翌年に<strong>簿価ベース</strong>で投資枠が復活！柔軟な資金活用が可能です</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 9: つみたてシミュレーション ===== -->
+  <div class="slide">
+    <div class="slide-content stagger">
+      <h2 class="slide-heading">つみたてシミュレーション</h2>
+      <div class="divider--accent divider"></div>
+      <p class="slide-subheading">毎月3万円を20年間つみたてた場合（年利5%想定）</p>
+      <div class="grid-3 mt-md">
+        <div class="num-card">
+          <div class="num-card__label">元本（積立総額）</div>
+          <div class="num-card__value" style="background:var(--blue-400);-webkit-background-clip:text;background-clip:text">720<span class="num-card__unit">万円</span></div>
+          <div class="num-card__note">3万円 × 12ヶ月 × 20年</div>
+        </div>
+        <div class="num-card">
+          <div class="num-card__label">運用益</div>
+          <div class="num-card__value">+513<span class="num-card__unit">万円</span></div>
+          <div class="num-card__note">複利の力で大きく増加</div>
+        </div>
+        <div class="num-card" style="border:2px solid var(--gold-400)">
+          <div class="num-card__label">合計資産額</div>
+          <div class="num-card__value num-card__value--gold">1,233<span class="num-card__unit">万円</span></div>
+          <div class="num-card__note">NISAなら利益513万円が非課税！</div>
+        </div>
+      </div>
+      <div class="row mt-lg">
+        <div class="col">
+          <div class="hbar">
+            <div class="hbar__label"><span class="hbar__label-text">元本</span><span class="hbar__label-value">720万円</span></div>
+            <div class="hbar__track"><div class="hbar__fill" data-width="58%" style="width:0"></div></div>
+          </div>
+          <div class="hbar">
+            <div class="hbar__label"><span class="hbar__label-text">運用益（非課税）</span><span class="hbar__label-value" style="color:var(--green-600)">+513万円</span></div>
+            <div class="hbar__track"><div class="hbar__fill hbar__fill--green" data-width="42%" style="width:0"></div></div>
+          </div>
+          <div class="hbar">
+            <div class="hbar__label"><span class="hbar__label-text">節税効果</span><span class="hbar__label-value" style="color:var(--gold-600)">約104万円</span></div>
+            <div class="hbar__track"><div class="hbar__fill hbar__fill--gold" data-width="25%" style="width:0"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 10: おすすめ投資戦略 ===== -->
+  <div class="slide">
+    <div class="slide-content stagger">
+      <h2 class="slide-heading">タイプ別おすすめ活用法</h2>
+      <div class="divider--accent divider"></div>
+      <div class="grid-3 mt-md">
+        <div class="card card--bordered-blue">
+          <div class="tag tag--blue mb-sm">初心者向け</div>
+          <div class="card__title">コツコツ型</div>
+          <div class="card__text" style="margin-top:12px">
+            <strong>つみたて投資枠のみ活用</strong><br>
+            毎月1〜10万円の自動積立<br>
+            全世界株式インデックスファンドに投資
+          </div>
+          <div style="margin-top:16px;padding:10px;background:var(--blue-50);border-radius:8px;font-size:0.85rem;color:var(--blue-700)">
+            💡 月1万円からでもOK
+          </div>
+        </div>
+        <div class="card card--bordered-green">
+          <div class="tag tag--green mb-sm">中級者向け</div>
+          <div class="card__title">バランス型</div>
+          <div class="card__text" style="margin-top:12px">
+            <strong>両枠を併用</strong><br>
+            つみたて枠：インデックス積立<br>
+            成長投資枠：高配当ETF・個別株
+          </div>
+          <div style="margin-top:16px;padding:10px;background:var(--green-100);border-radius:8px;font-size:0.85rem;color:#065f46">
+            📊 分散効果を最大化
+          </div>
+        </div>
+        <div class="card card--bordered-gold">
+          <div class="tag tag--gold mb-sm">上級者向け</div>
+          <div class="card__title">フル活用型</div>
+          <div class="card__text" style="margin-top:12px">
+            <strong>年間360万円をフル投入</strong><br>
+            最短5年で1,800万円枠を使い切り<br>
+            複利効果を最大限に活かす
+          </div>
+          <div style="margin-top:16px;padding:10px;background:var(--gold-100);border-radius:8px;font-size:0.85rem;color:#92400e">
+            🚀 最速で非課税資産を構築
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 11: NISAの注意点 ===== -->
+  <div class="slide">
+    <div class="slide-content stagger">
+      <h2 class="slide-heading">知っておきたい注意点</h2>
+      <div class="divider--accent divider"></div>
+      <div class="grid-2 mt-md">
+        <div class="callout callout--warning">
+          <span class="callout__icon">⚠️</span>
+          <div>
+            <strong>損益通算ができない</strong><br>
+            NISA口座の損失は、他の口座の利益と相殺できません
+          </div>
+        </div>
+        <div class="callout callout--warning">
+          <span class="callout__icon">⚠️</span>
+          <div>
+            <strong>1人1口座のみ</strong><br>
+            金融機関は年単位でしか変更できません。慎重に選びましょう
+          </div>
+        </div>
+        <div class="callout callout--danger">
+          <span class="callout__icon">🚫</span>
+          <div>
+            <strong>元本保証ではない</strong><br>
+            投資は価格変動リスクがあります。余裕資金で行いましょう
+          </div>
+        </div>
+        <div class="callout callout--info">
+          <span class="callout__icon">📌</span>
+          <div>
+            <strong>対象外商品あり</strong><br>
+            整理銘柄・監理銘柄、毎月分配型の投信などは対象外です
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 12: はじめ方ステップ ===== -->
+  <div class="slide slide--dark">
+    <div class="slide-content stagger">
+      <span class="tag tag--blue">Part 4</span>
+      <h2 class="slide-heading mt-sm">NISAのはじめ方</h2>
+      <div class="divider--accent divider" style="background:var(--grad-accent)"></div>
+      <p class="slide-subheading">3つのステップでかんたんスタート</p>
+      <div class="timeline mt-lg">
+        <div class="timeline__item timeline__item--done">
+          <div class="timeline__year">STEP 1</div>
+          <div class="timeline__title" style="color:var(--white)">金融機関を選ぶ</div>
+          <div class="timeline__desc" style="color:var(--blue-200)">ネット証券（SBI証券・楽天証券など）がおすすめ。手数料が安く、商品数が豊富です。</div>
+        </div>
+        <div class="timeline__item timeline__item--active">
+          <div class="timeline__year">STEP 2</div>
+          <div class="timeline__title" style="color:var(--white)">NISA口座を開設</div>
+          <div class="timeline__desc" style="color:var(--blue-200)">オンラインで申し込み。マイナンバーカードがあれば最短翌営業日で完了。税務署の審査あり。</div>
+        </div>
+        <div class="timeline__item">
+          <div class="timeline__year">STEP 3</div>
+          <div class="timeline__title" style="color:var(--white)">商品を選んでつみたて設定</div>
+          <div class="timeline__desc" style="color:var(--blue-200)">全世界株式やS&P500連動のインデックスファンドが人気。毎月自動で積立できます。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Slide 13: まとめ ===== -->
+  <div class="slide slide--summary">
+    <div class="summary-icon">🏆</div>
+    <h2 class="summary-heading">新NISAのポイントまとめ</h2>
+    <ul class="summary-list">
+      <li>非課税期間が<strong>無期限</strong>に拡充</li>
+      <li>年間投資枠は最大<strong>360万円</strong>（つみたて120万+成長240万）</li>
+      <li>生涯投資枠<strong>1,800万円</strong>、売却で枠が復活</li>
+      <li>つみたて投資枠と成長投資枠の<strong>併用が可能</strong></li>
+      <li>少額からでもOK。<strong>まずは始めることが大切</strong></li>
+    </ul>
+    <div class="summary-cta">今日からNISAをはじめよう！</div>
+  </div>
+</div>
+
+<!-- Progress Bar -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- Slide Number -->
+<div class="slide-number" id="slideNumber"></div>
+
+<!-- Navigation Arrows -->
+<div class="nav-arrows">
+  <button id="btnPrev" aria-label="Previous slide">
+    <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+  </button>
+  <button id="btnNext" aria-label="Next slide">
+    <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+  </button>
+</div>
+
+<!-- Keyboard Hints -->
+<div class="keyboard-hint">
+  <div class="keyboard-hint__item">
+    <span class="keyboard-hint__key">&larr;</span><span class="keyboard-hint__key">&rarr;</span> Navigate
+  </div>
+  <div class="keyboard-hint__item">
+    <span class="keyboard-hint__key">F</span> Fullscreen
+  </div>
+  <div class="keyboard-hint__item">
+    <span class="keyboard-hint__key">O</span> Overview
+  </div>
+</div>
+
+<!-- Overview Overlay -->
+<div class="overview-overlay" id="overviewOverlay">
+  <div class="overview-title">Slide Overview &mdash; Press O or Esc to close</div>
+  <div class="overview-grid" id="overviewGrid"></div>
+</div>
+
+<script>
+/* ==========================================================================
+   Presentation Engine
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  // ---- State ----
+  let currentIndex = 0;
+  let slides = [];
+  let overviewOpen = false;
+  let isAnimating = false;
+
+  // ---- DOM refs ----
+  const presentation = document.getElementById("presentation");
+  const progressBar  = document.getElementById("progressBar");
+  const slideNumber  = document.getElementById("slideNumber");
+  const btnPrev      = document.getElementById("btnPrev");
+  const btnNext      = document.getElementById("btnNext");
+  const overviewOverlay = document.getElementById("overviewOverlay");
+  const overviewGrid    = document.getElementById("overviewGrid");
+
+  // ---- Init ----
+  function init() {
+    slides = Array.from(presentation.querySelectorAll(".slide"));
+    if (slides.length === 0) return;
+
+    // Restore slide from hash
+    const hash = parseInt(location.hash.replace("#", ""), 10);
+    if (!isNaN(hash) && hash >= 0 && hash < slides.length) {
+      currentIndex = hash;
+    }
+
+    slides.forEach((s, i) => {
+      s.setAttribute("data-index", i);
+      if (i === currentIndex) {
+        s.classList.add("active");
+      }
+    });
+
+    updateUI();
+    bindEvents();
+    buildOverview();
+
+    // Animate bars/charts when they become visible
+    observeAnimatedElements();
+  }
+
+  // ---- Navigation ----
+  function goTo(index, skipAnimation) {
+    if (index < 0 || index >= slides.length || index === currentIndex) return;
+    if (isAnimating && !skipAnimation) return;
+
+    isAnimating = true;
+    const dir = index > currentIndex ? 1 : -1;
+    const prev = slides[currentIndex];
+    const next = slides[index];
+
+    // Remove active, set direction
+    prev.classList.remove("active");
+    prev.classList.add(dir > 0 ? "prev" : "");
+    if (dir < 0) {
+      prev.style.transform = "translateX(60px)";
+    }
+
+    // Prepare incoming slide
+    next.style.transition = "none";
+    next.style.transform = dir > 0 ? "translateX(60px)" : "translateX(-60px)";
+    next.style.opacity = "0";
+
+    // Force reflow
+    void next.offsetWidth;
+
+    // Animate in
+    next.style.transition = "";
+    next.classList.add("active");
+    next.style.transform = "";
+    next.style.opacity = "";
+
+    currentIndex = index;
+    location.hash = currentIndex;
+    updateUI();
+
+    setTimeout(() => {
+      prev.classList.remove("prev");
+      prev.style.transform = "";
+      isAnimating = false;
+    }, 550);
+  }
+
+  function next() {
+    if (currentIndex < slides.length - 1) goTo(currentIndex + 1);
+  }
+
+  function prev() {
+    if (currentIndex > 0) goTo(currentIndex - 1);
+  }
+
+  // ---- UI Update ----
+  function updateUI() {
+    // Progress
+    const pct = slides.length > 1 ? ((currentIndex) / (slides.length - 1)) * 100 : 100;
+    progressBar.style.width = pct + "%";
+
+    // Slide number
+    slideNumber.textContent = (currentIndex + 1) + " / " + slides.length;
+
+    // Dark slide detection
+    const active = slides[currentIndex];
+    const isDark = active.classList.contains("slide--dark")
+      || active.classList.contains("slide--title")
+      || active.classList.contains("slide--summary");
+    document.body.classList.toggle("dark-slide", isDark);
+
+    // Update overview current
+    const items = overviewGrid.querySelectorAll(".overview-grid__item");
+    items.forEach((el, i) => el.classList.toggle("current", i === currentIndex));
+  }
+
+  // ---- Overview ----
+  function buildOverview() {
+    overviewGrid.innerHTML = "";
+    slides.forEach((slide, i) => {
+      const item = document.createElement("div");
+      item.className = "overview-grid__item" + (i === currentIndex ? " current" : "");
+
+      // Thumbnail via clone
+      const inner = document.createElement("div");
+      inner.className = "overview-grid__item-inner";
+      const clone = slide.cloneNode(true);
+      clone.classList.remove("active", "prev");
+      clone.style.cssText = "position:static;opacity:1;visibility:visible;transform:none;width:1200px;height:750px;pointer-events:none;";
+      // Scale to fit
+      inner.style.transform = "scale(0.22)";
+      inner.style.transformOrigin = "top left";
+      inner.style.width = "1200px";
+      inner.style.height = "750px";
+      inner.appendChild(clone);
+      item.appendChild(inner);
+
+      const label = document.createElement("div");
+      label.className = "overview-grid__label";
+      label.textContent = "Slide " + (i + 1);
+      item.appendChild(label);
+
+      item.addEventListener("click", () => {
+        closeOverview();
+        goTo(i, true);
+      });
+
+      overviewGrid.appendChild(item);
+    });
+  }
+
+  function toggleOverview() {
+    overviewOpen ? closeOverview() : openOverview();
+  }
+
+  function openOverview() {
+    buildOverview();
+    overviewOverlay.classList.add("active");
+    overviewOpen = true;
+  }
+
+  function closeOverview() {
+    overviewOverlay.classList.remove("active");
+    overviewOpen = false;
+  }
+
+  // ---- Fullscreen ----
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  // ---- Animated Elements Observer ----
+  function observeAnimatedElements() {
+    // Animate bar chart bars when slide becomes active
+    const observer = new MutationObserver(() => {
+      const active = slides[currentIndex];
+      if (!active) return;
+
+      // Animate bar heights
+      active.querySelectorAll(".bar-chart__bar[data-height]").forEach(bar => {
+        bar.style.height = bar.dataset.height;
+      });
+
+      // Animate horizontal bar widths
+      active.querySelectorAll(".hbar__fill[data-width]").forEach(fill => {
+        fill.style.width = fill.dataset.width;
+      });
+
+      // Animate donut chart segments
+      active.querySelectorAll("circle[data-dashoffset]").forEach(circle => {
+        circle.style.strokeDashoffset = circle.dataset.dashoffset;
+      });
+    });
+
+    slides.forEach(slide => {
+      observer.observe(slide, { attributes: true, attributeFilter: ["class"] });
+    });
+
+    // Trigger for initial slide
+    const firstActive = slides[currentIndex];
+    if (firstActive) {
+      firstActive.querySelectorAll(".bar-chart__bar[data-height]").forEach(bar => {
+        requestAnimationFrame(() => { bar.style.height = bar.dataset.height; });
+      });
+      firstActive.querySelectorAll(".hbar__fill[data-width]").forEach(fill => {
+        requestAnimationFrame(() => { fill.style.width = fill.dataset.width; });
+      });
+    }
+  }
+
+  // ---- Events ----
+  function bindEvents() {
+    // Keyboard
+    document.addEventListener("keydown", (e) => {
+      if (overviewOpen) {
+        if (e.key === "Escape" || e.key === "o" || e.key === "O") {
+          closeOverview();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case "ArrowRight":
+        case "ArrowDown":
+        case " ":
+        case "PageDown":
+          next();
+          e.preventDefault();
+          break;
+        case "ArrowLeft":
+        case "ArrowUp":
+        case "PageUp":
+          prev();
+          e.preventDefault();
+          break;
+        case "Home":
+          goTo(0);
+          e.preventDefault();
+          break;
+        case "End":
+          goTo(slides.length - 1);
+          e.preventDefault();
+          break;
+        case "f":
+        case "F":
+          toggleFullscreen();
+          e.preventDefault();
+          break;
+        case "o":
+        case "O":
+          toggleOverview();
+          e.preventDefault();
+          break;
+        case "Escape":
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          }
+          break;
+      }
+    });
+
+    // Navigation buttons
+    btnPrev.addEventListener("click", prev);
+    btnNext.addEventListener("click", next);
+
+    // Touch support
+    let touchStartX = 0;
+    let touchStartY = 0;
+    presentation.addEventListener("touchstart", (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    presentation.addEventListener("touchend", (e) => {
+      const dx = e.changedTouches[0].screenX - touchStartX;
+      const dy = e.changedTouches[0].screenY - touchStartY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+        dx < 0 ? next() : prev();
+      }
+    }, { passive: true });
+
+    // Hash change
+    window.addEventListener("hashchange", () => {
+      const idx = parseInt(location.hash.replace("#", ""), 10);
+      if (!isNaN(idx) && idx !== currentIndex) goTo(idx, true);
+    });
+  }
+
+  // ---- Boot ----
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+
+</body>
+</html>
