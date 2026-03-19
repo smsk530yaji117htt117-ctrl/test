@@ -8,12 +8,13 @@
     python main.py --use-google-search           # Google検索APIも併用
 
 入力CSVの形式:
-    tdb_code,company_name,website_url,industry
-    270012345,株式会社サンプル商事,https://www.example.co.jp,商社
+    NO,対応日,対応者,TDB,会社名,業種,案件番号,規模
+    1,11月11日,,10009645,伊藤組土建株式会社,一般土木建築工事業,◯ 320,①
 """
 
 import argparse
 import logging
+import re
 import sys
 
 import pandas as pd
@@ -34,12 +35,50 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# 日本語カラム名 → 内部カラム名のマッピング
+COLUMN_MAP = {
+    "会社名": "company_name",
+    "TDB": "tdb_code",
+    "業種": "industry",
+    # 英語カラム名もそのまま受け付ける
+    "company_name": "company_name",
+    "tdb_code": "tdb_code",
+    "website_url": "website_url",
+    "industry": "industry",
+}
+
+
+def _fix_tdb_code(val: str) -> str:
+    """Excelの指数表記（4E+08等）を整数文字列に戻す"""
+    if not val or pd.isna(val):
+        return ""
+    val = val.strip()
+    if re.match(r'^[\d.]+[Ee][+\-]?\d+$', val):
+        try:
+            return str(int(float(val)))
+        except (ValueError, OverflowError):
+            return val
+    return val
+
+
 def load_companies(csv_path: str) -> pd.DataFrame:
-    """企業一覧CSVを読み込む"""
+    """企業一覧CSVを読み込む（日本語・英語カラム名の両方に対応）"""
     df = pd.read_csv(csv_path, dtype=str)
-    required_cols = {"company_name"}
-    if not required_cols.issubset(df.columns):
-        raise ValueError(f"CSVに必須カラムがありません: {required_cols - set(df.columns)}")
+
+    # カラム名をマッピング
+    rename = {col: COLUMN_MAP[col] for col in df.columns if col in COLUMN_MAP}
+    df = df.rename(columns=rename)
+
+    if "company_name" not in df.columns:
+        raise ValueError(
+            f"CSVに企業名カラムがありません。'会社名' または 'company_name' が必要です。"
+            f" 検出されたカラム: {list(df.columns)}"
+        )
+
+    # TDBコードの指数表記を修正
+    if "tdb_code" in df.columns:
+        df["tdb_code"] = df["tdb_code"].apply(_fix_tdb_code)
+
     return df
 
 
