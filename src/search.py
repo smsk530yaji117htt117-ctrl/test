@@ -9,12 +9,24 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# Google APIが利用可能かチェック
-try:
-    from googleapiclient.discovery import build as google_build
-    GOOGLE_API_AVAILABLE = True
-except ImportError:
-    GOOGLE_API_AVAILABLE = False
+GOOGLE_API_AVAILABLE = None  # 遅延チェック
+
+
+def _get_google_build():
+    """Google API clientを遅延ロードで取得"""
+    global GOOGLE_API_AVAILABLE
+    if GOOGLE_API_AVAILABLE is None:
+        try:
+            from googleapiclient.discovery import build  # noqa: F811
+            GOOGLE_API_AVAILABLE = True
+            return build
+        except (ImportError, Exception):
+            GOOGLE_API_AVAILABLE = False
+            return None
+    elif GOOGLE_API_AVAILABLE:
+        from googleapiclient.discovery import build
+        return build
+    return None
 
 
 def search_google(query: str, num_results: int = 5) -> list[dict]:
@@ -36,8 +48,9 @@ def search_google(query: str, num_results: int = 5) -> list[dict]:
         )
         return []
 
-    if not GOOGLE_API_AVAILABLE:
-        logger.warning("google-api-python-client がインストールされていません。")
+    google_build = _get_google_build()
+    if not google_build:
+        logger.warning("google-api-python-client が利用できません。")
         return []
 
     try:
