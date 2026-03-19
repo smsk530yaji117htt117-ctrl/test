@@ -127,26 +127,52 @@ def main():
             logger.info("URLが未設定のため検索: %s", company_name)
             website_url = search_company_website(company_name) or ""
 
-        if not website_url or pd.isna(website_url):
-            logger.warning("URL不明のためスキップ: %s", company_name)
-            continue
+        # HPがある場合はスクレイピング、なくてもGoogle検索のみで進められる
+        if website_url and not pd.isna(website_url):
+            result = scraper.scrape_company(company_name, website_url)
+        else:
+            logger.info("URL不明のためHP探索スキップ、外部検索のみ実行: %s", company_name)
+            result = {
+                "company_name": company_name,
+                "website_url": "",
+                "career_pages": [],
+                "employee_pages": [],
+                "external_pages": [],
+                "recruiter_pages": [],
+            }
 
-        # HPスクレイピング
-        result = scraper.scrape_company(company_name, website_url)
-
-        # Google検索で追加のインタビュー記事を探す
+        # Google検索で外部インタビュー記事を網羅的に探す
         if args.use_google_search:
             search_results = search_employee_interviews(company_name)
             result["google_search_results"] = search_results
+
+            # 検索結果のURLを実際にスクレイピングして情報抽出
+            external_pages = []
+            scraped_urls = {p["url"] for p in result["employee_pages"]}
+            for sr in search_results:
+                if sr["url"] in scraped_urls:
+                    continue
+                scraped_urls.add(sr["url"])
+                logger.info("外部ページスクレイピング: %s", sr["url"])
+                ext_info = scraper.scrape_external_page(sr["url"])
+                if ext_info:
+                    external_pages.append(ext_info)
+            result["external_pages"] = external_pages
+            logger.info(
+                "%s: 外部サイトから %d 件の社員情報を取得",
+                company_name, len(external_pages),
+            )
 
         result["tdb_code"] = row.get("tdb_code", "")
         result["industry"] = row.get("industry", "")
         all_results.append(result)
 
+        total_employee = len(result["employee_pages"]) + len(result.get("external_pages", []))
         logger.info(
-            "[%d/%d] %s 完了 - 社員紹介: %d件, 採用担当: %d件",
+            "[%d/%d] %s 完了 - HP社員紹介: %d件, 外部記事: %d件, 採用担当: %d件",
             idx + 1, len(df), company_name,
             len(result["employee_pages"]),
+            len(result.get("external_pages", [])),
             len(result["recruiter_pages"]),
         )
 

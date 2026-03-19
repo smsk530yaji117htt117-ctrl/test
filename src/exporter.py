@@ -27,19 +27,34 @@ def export_results(all_results: list[dict], output_prefix: str = ""):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     prefix = f"{output_prefix}_" if output_prefix else ""
 
-    # --- 社員情報CSV ---
+    # --- 社員情報CSV（HP内 + 外部サイト統合）---
     employee_rows = []
     for company_data in all_results:
+        # HP内の社員紹介ページ
         for emp in company_data.get("employee_pages", []):
             employee_rows.append({
                 "企業名": company_data["company_name"],
                 "企業URL": company_data["website_url"],
+                "ソース": emp.get("source", "自社HP"),
                 "ページURL": emp["url"],
                 "ページタイトル": emp["page_title"],
                 "検出された人名": " / ".join(emp.get("names", [])),
                 "部署": " / ".join(emp.get("departments", [])),
                 "役職": " / ".join(emp.get("positions", [])),
                 "コンテンツ概要": emp.get("content_summary", ""),
+            })
+        # 外部インタビューサイトのページ
+        for ext in company_data.get("external_pages", []):
+            employee_rows.append({
+                "企業名": company_data["company_name"],
+                "企業URL": company_data["website_url"],
+                "ソース": ext.get("source", "外部サイト"),
+                "ページURL": ext["url"],
+                "ページタイトル": ext["page_title"],
+                "検出された人名": " / ".join(ext.get("names", [])),
+                "部署": " / ".join(ext.get("departments", [])),
+                "役職": " / ".join(ext.get("positions", [])),
+                "コンテンツ概要": ext.get("content_summary", ""),
             })
 
     if employee_rows:
@@ -75,7 +90,8 @@ def export_results(all_results: list[dict], output_prefix: str = ""):
             "企業名": company_data["company_name"],
             "企業URL": company_data["website_url"],
             "採用ページ数": len(company_data.get("career_pages", [])),
-            "社員紹介ページ数": len(company_data.get("employee_pages", [])),
+            "社員紹介ページ数(HP)": len(company_data.get("employee_pages", [])),
+            "社員紹介ページ数(外部)": len(company_data.get("external_pages", [])),
             "採用担当者ページ数": len(company_data.get("recruiter_pages", [])),
         })
 

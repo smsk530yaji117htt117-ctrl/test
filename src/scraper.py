@@ -229,6 +229,59 @@ class CompanyScraper:
             "content_summary": text[:500],
         }
 
+    def scrape_external_page(self, url: str) -> dict | None:
+        """外部インタビューサイトのページから情報を抽出
+
+        HP内ページと同じ形式で返すが、source を付与して区別可能にする。
+        """
+        time.sleep(REQUEST_DELAY)
+        soup = self._get_page(url)
+        if not soup:
+            return None
+
+        title = soup.title.get_text(strip=True) if soup.title else ""
+
+        main_content = (
+            soup.find("main")
+            or soup.find("article")
+            or soup.find("div", class_=re.compile(r"content|main|entry|interview|article|post", re.I))
+            or soup.body
+        )
+        if not main_content:
+            return None
+
+        text = main_content.get_text(separator="\n", strip=True)
+        if len(text) < 100:
+            # コンテンツが少なすぎる場合はスキップ
+            return None
+
+        # 人名パターン
+        name_pattern = re.compile(
+            r"[一-龥ぁ-んァ-ヶ]{1,4}\s?[一-龥ぁ-んァ-ヶ]{1,4}\s*(?:さん|氏|様)?"
+        )
+        dept_pattern = re.compile(
+            r"[一-龥ぁ-んァ-ヶA-Za-z\s]{2,20}(?:部|課|室|グループ|チーム|事業部|センター)"
+        )
+        position_pattern = re.compile(
+            r"(?:部長|課長|係長|主任|マネージャー|リーダー|ディレクター|"
+            r"エンジニア|デザイナー|プランナー|コンサルタント|アナリスト|"
+            r"担当|スペシャリスト|エキスパート|アドバイザー|代表取締役|社長|取締役)"
+        )
+
+        names = list(dict.fromkeys(name_pattern.findall(text)[:10]))
+        departments = list(dict.fromkeys(dept_pattern.findall(text)[:10]))
+        positions = list(dict.fromkeys(position_pattern.findall(text)[:10]))
+
+        return {
+            "url": url,
+            "page_title": title,
+            "source": urlparse(url).netloc,
+            "names": names,
+            "departments": departments,
+            "positions": positions,
+            "content_summary": text[:500],
+        }
+
     def scrape_company(self, company_name: str, website_url: str) -> dict:
         """1社分の情報を収集するメインメソッド
 
@@ -238,6 +291,7 @@ class CompanyScraper:
                 "website_url": str,
                 "career_pages": list[str],
                 "employee_pages": list[dict],
+                "external_pages": list[dict],
                 "recruiter_pages": list[dict],
             }
         """
@@ -248,6 +302,7 @@ class CompanyScraper:
             "website_url": website_url,
             "career_pages": [],
             "employee_pages": [],
+            "external_pages": [],
             "recruiter_pages": [],
         }
 
@@ -264,6 +319,7 @@ class CompanyScraper:
         for emp_url in employee_urls[:MAX_PAGES_PER_COMPANY]:
             info = self.extract_employee_info(emp_url)
             if info:
+                info["source"] = urlparse(website_url).netloc
                 result["employee_pages"].append(info)
 
         # Step 4: 採用担当者ページを探す
