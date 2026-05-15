@@ -21,7 +21,9 @@ jobs:
       - name: Run collector
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python collector/collect.py
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TECH_PULSE_WEBHOOK_URL: ${{ secrets.TECH_PULSE_WEBHOOK_URL }}
+        run: python -m collector.collect
       - name: Commit snapshot
         run: |
           git config user.name "github-actions[bot]"

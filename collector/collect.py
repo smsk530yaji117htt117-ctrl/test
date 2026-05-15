@@ -24,9 +24,14 @@ REDDIT_TOP = "https://www.reddit.com/r/{sub}/top.json?t=day&limit=25"
 QIITA_ITEMS = "https://qiita.com/api/v2/items?per_page=25"
 ZENN_ARTICLES = "https://zenn.dev/api/articles?order=daily"
 DEVTO_ARTICLES = "https://dev.to/api/articles?per_page=25&top=1"
+HATENA_RSS = "https://b.hatena.ne.jp/hotentry/it.rss"
+PRODUCTHUNT_RSS = "https://www.producthunt.com/feed"
+ARXIV_API = "https://export.arxiv.org/api/query"
 
 USER_AGENT = "tech-pulse-api/1.0 (+https://github.com/)"
 SUBREDDITS = ["programming", "MachineLearning", "webdev"]
+ARXIV_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL"]
+JAPANESE_SOURCES = {"qiita", "zenn", "hatena"}
 
 
 def fetch_hn(client: httpx.Client, limit: int = 30) -> list[dict]:
@@ -121,6 +126,81 @@ def fetch_devto(client: httpx.Client) -> list[dict]:
     } for it in r.json()]
 
 
+def fetch_hatena(client: httpx.Client) -> list[dict]:
+    import xml.etree.ElementTree as ET
+    r = client.get(HATENA_RSS, timeout=20)
+    r.raise_for_status()
+    ns = {
+        "rss": "http://purl.org/rss/1.0/",
+        "dc": "http://purl.org/dc/elements/1.1/",
+        "hatena": "http://www.hatena.ne.jp/info/xmlns#",
+    }
+    root = ET.fromstring(r.content)
+    items = []
+    for item in root.findall("rss:item", ns):
+        title = item.findtext("rss:title", default="", namespaces=ns)
+        url = item.findtext("rss:link", default="", namespaces=ns)
+        bookmarks = item.findtext("hatena:bookmarkcount", default="0", namespaces=ns)
+        items.append({
+            "title": title,
+            "url": url,
+            "bookmarks": int(bookmarks) if bookmarks.isdigit() else 0,
+        })
+    return items[:25]
+
+
+def fetch_producthunt(client: httpx.Client) -> list[dict]:
+    import xml.etree.ElementTree as ET
+    r = client.get(PRODUCTHUNT_RSS, timeout=20)
+    r.raise_for_status()
+    root = ET.fromstring(r.content)
+    channel = root.find("channel")
+    out = []
+    if channel is None:
+        return out
+    for item in channel.findall("item")[:25]:
+        title = (item.findtext("title") or "").strip()
+        url = (item.findtext("link") or "").strip()
+        description = (item.findtext("description") or "").strip()
+        out.append({"title": title, "url": url, "description": description})
+    return out
+
+
+def fetch_arxiv(client: httpx.Client) -> list[dict]:
+    import xml.etree.ElementTree as ET
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    out = []
+    query = "+OR+".join(f"cat:{c}" for c in ARXIV_CATEGORIES)
+    params = {
+        "search_query": query,
+        "max_results": 25,
+        "sortBy": "submittedDate",
+        "sortOrder": "descending",
+    }
+    r = client.get(ARXIV_API, params=params, timeout=30)
+    r.raise_for_status()
+    root = ET.fromstring(r.content)
+    for entry in root.findall("atom:entry", ns):
+        title = (entry.findtext("atom:title", default="", namespaces=ns) or "").strip()
+        summary = (entry.findtext("atom:summary", default="", namespaces=ns) or "").strip()
+        link = ""
+        for l in entry.findall("atom:link", ns):
+            if l.attrib.get("rel") == "alternate":
+                link = l.attrib.get("href", "")
+                break
+        authors = [
+            (a.findtext("atom:name", default="", namespaces=ns) or "").strip()
+            for a in entry.findall("atom:author", ns)
+        ]
+        out.append({
+            "title": " ".join(title.split()),
+            "url": link,
+            "abstract": " ".join(summary.split())[:400],
+            "authors": authors[:5],
+        })
+    return out
+
+
 def _safe(label: str, fn, *args, **kwargs):
     try:
         return fn(*args, **kwargs)
@@ -145,9 +225,14 @@ def build_snapshot() -> dict:
                 "qiita": _safe("qiita", fetch_qiita, client),
                 "zenn": _safe("zenn", fetch_zenn, client),
                 "devto": _safe("devto", fetch_devto, client),
+                "hatena": _safe("hatena", fetch_hatena, client),
+                "producthunt": _safe("producthunt", fetch_producthunt, client),
+                "arxiv": _safe("arxiv", fetch_arxiv, client),
             },
         }
     snapshot["trending_keywords"] = compute_keywords(snapshot["sources"])
+    snapshot["trending_keywords_ja"] = compute_keywords(snapshot["sources"], lang="ja")
+    snapshot["trending_keywords_en"] = compute_keywords(snapshot["sources"], lang="en")
     return snapshot
 
 
@@ -162,7 +247,26 @@ _STOPWORDS = {
 }
 
 
-def compute_keywords(sources: dict, top_n: int = 25) -> list[dict]:
+_SOURCE_FIELDS = {
+    "hackernews": ["title"],
+    "github_trending": ["name", "description"],
+    "qiita": ["title"],
+    "zenn": ["title"],
+    "devto": ["title"],
+    "hatena": ["title"],
+    "producthunt": ["title", "description"],
+    "arxiv": ["title"],
+}
+
+
+def compute_keywords(sources: dict, top_n: int = 25, lang: str | None = None) -> list[dict]:
+    """Top keywords across titles.
+
+    `lang` filters which sources contribute:
+      - None: all sources
+      - "ja": Japanese sources only (qiita / zenn / hatena)
+      - "en": non-Japanese sources
+    """
     import re
     from collections import Counter
     counter: Counter = Counter()
@@ -175,19 +279,26 @@ def compute_keywords(sources: dict, top_n: int = 25) -> list[dict]:
                 if tok in _STOPWORDS or len(tok) < 3:
                     continue
                 counter[tok] += 1
-    add_text(sources.get("hackernews"), ["title"])
-    add_text(sources.get("github_trending"), ["name", "description"])
-    add_text(sources.get("qiita"), ["title"])
-    add_text(sources.get("zenn"), ["title"])
-    add_text(sources.get("devto"), ["title"])
-    for posts in (sources.get("reddit") or {}).values():
-        add_text(posts, ["title"])
+    for src, fields in _SOURCE_FIELDS.items():
+        if lang == "ja" and src not in JAPANESE_SOURCES:
+            continue
+        if lang == "en" and src in JAPANESE_SOURCES:
+            continue
+        add_text(sources.get(src), fields)
+    if lang != "ja":
+        for posts in (sources.get("reddit") or {}).values():
+            add_text(posts, ["title"])
     return [{"keyword": k, "count": c} for k, c in counter.most_common(top_n)]
 
 
 def main() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     snapshot = build_snapshot()
+
+    from collector import summarize, webhook
+    summarize.enrich(snapshot)
+    webhook.notify(snapshot)
+
     today = datetime.now(timezone.utc).date().isoformat()
     out_path = DATA_DIR / f"{today}.json"
     out_path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2))

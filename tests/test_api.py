@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = {
     "generated_at": "2026-05-15T00:00:00+00:00",
     "sources": {
-        "hackernews": [{"id": 1, "title": "Rust beats Python", "url": "https://x", "score": 100, "comments": 10}],
+        "hackernews": [{"id": 1, "title": "Rust beats Python", "url": "https://x", "score": 100, "comments": 10, "summary_ja": "RustがPythonを上回る性能テスト結果"}],
         "github_trending": [
             {"name": "owner/py-repo", "url": "https://x", "language": "Python", "stars": 50, "forks": 5},
             {"name": "owner/rs-repo", "url": "https://x", "language": "Rust", "stars": 80, "forks": 8},
@@ -23,8 +23,13 @@ FIXTURE = {
         "qiita": [{"title": "Python tips", "url": "https://x", "likes": 5, "stocks": 2, "tags": ["Python"]}],
         "zenn": [{"title": "Zenn article", "url": "https://x", "likes": 3, "comments": 0}],
         "devto": [{"title": "Dev post", "url": "https://x", "reactions": 7, "comments": 2, "tags": ["python"]}],
+        "hatena": [{"title": "Hatena post", "url": "https://x", "bookmarks": 42}],
+        "producthunt": [{"title": "PH product", "url": "https://x", "description": "A new tool"}],
+        "arxiv": [{"title": "LLM paper", "url": "https://x", "abstract": "We study LLMs.", "authors": ["A"]}],
     },
     "trending_keywords": [{"keyword": "rust", "count": 2}, {"keyword": "python", "count": 2}],
+    "trending_keywords_ja": [{"keyword": "python", "count": 1}],
+    "trending_keywords_en": [{"keyword": "rust", "count": 2}],
 }
 
 
@@ -141,6 +146,47 @@ def test_qiita_zenn_devto(client):
         r = client.get(path)
         assert r.status_code == 200, path
         assert "items" in r.json(), path
+
+
+def test_new_sources(client):
+    for path in ["/v1/pulse/hatena", "/v1/pulse/producthunt", "/v1/pulse/arxiv"]:
+        r = client.get(path)
+        assert r.status_code == 200, path
+        assert "items" in r.json(), path
+
+
+def test_trending_lang_ja(client):
+    r = client.get("/v1/pulse/trending?lang=ja")
+    assert r.status_code == 200
+    kws = r.json()["keywords"]
+    assert any(k["keyword"] == "python" for k in kws)
+
+
+def test_trending_lang_en(client):
+    r = client.get("/v1/pulse/trending?lang=en")
+    assert r.status_code == 200
+    kws = r.json()["keywords"]
+    assert any(k["keyword"] == "rust" for k in kws)
+
+
+def test_trending_lang_invalid_rejected(client):
+    r = client.get("/v1/pulse/trending?lang=fr")
+    assert r.status_code == 422
+
+
+def test_dashboard(client):
+    r = client.get("/dashboard")
+    assert r.status_code == 200
+    assert "Tech Pulse" in r.text
+    assert "rust" in r.text  # trending keyword shows up
+    assert "hatena" in r.text  # source listed
+
+
+def test_sources_includes_new(client):
+    r = client.get("/v1/pulse/sources")
+    avail = r.json()["available"]
+    for k in ("hatena", "producthunt", "arxiv"):
+        assert k in avail, k
 
 
 def test_auth_missing_when_required(authed_client):

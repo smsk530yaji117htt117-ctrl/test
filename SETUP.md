@@ -25,7 +25,11 @@ https://tech-pulse-api.vercel.app
 
 1. このリポジトリの **Actions** タブを開く
 2. ワークフローを有効化
-3. `Daily Collect` を手動実行（`workflow_dispatch`）して動作確認
+3. **任意の Secrets を設定** (Settings → Secrets and variables → Actions):
+   - `ANTHROPIC_API_KEY` — 設定すると各記事に日本語AI要約が付与される（単価向上）
+   - `TECH_PULSE_WEBHOOK_URL` — Slack/Discord等のWebhook URL。キーワード急上昇時に自動通知
+   - これらは省略可。未設定なら該当機能をスキップして動作する
+4. `Daily Collect` を手動実行（`workflow_dispatch`）して動作確認
 
 成功すると `data/daily/YYYY-MM-DD.json` と `data/latest.json` がコミットされます。
 
@@ -61,7 +65,7 @@ GitHub に push されるたびに自動再デプロイ。
    - 手動なら以下:
      - `GET /v1/pulse/latest`
      - `GET /v1/pulse/sources`
-     - `GET /v1/pulse/trending?limit=20&format=json`
+     - `GET /v1/pulse/trending?limit=20&format=json&lang=ja`
      - `GET /v1/pulse/trending/history?days=7`
      - `GET /v1/pulse/hackernews?limit=20`
      - `GET /v1/pulse/github?language=Python`
@@ -69,6 +73,9 @@ GitHub に push されるたびに自動再デプロイ。
      - `GET /v1/pulse/qiita`
      - `GET /v1/pulse/zenn`
      - `GET /v1/pulse/devto`
+     - `GET /v1/pulse/hatena`
+     - `GET /v1/pulse/producthunt`
+     - `GET /v1/pulse/arxiv`
      - `GET /v1/pulse/archive/{date}`
 6. **Pricing プラン** を設定（推奨）:
    - **Basic (Free):** 100コール/月 — 集客用
@@ -101,11 +108,19 @@ GitHub に push されるたびに自動再デプロイ。
 
 ---
 
-## 拡張アイデア（将来）
+## 実装済み機能
 
-1. **AI要約レイヤー** — Claude APIで各記事に200字要約を付与（単価アップ）
-2. **トレンド分析エンドポイント** — `/v1/trending/keywords?days=7`
-3. **日本語ソース追加** — はてブ、Qiitaトレンド
-4. **Webhook配信** — 「特定キーワードが浮上したら通知」
+- ✅ AI要約レイヤー（`ANTHROPIC_API_KEY` を設定すると有効化）
+- ✅ Webhook配信（`TECH_PULSE_WEBHOOK_URL` を設定するとキーワード急上昇時に通知）
+- ✅ 日本語ソース（Qiita / Zenn / はてブ）+ 言語別トレンド `/v1/pulse/trending?lang=ja`
+- ✅ 追加ソース（Product Hunt / arXiv）
+- ✅ 管理ダッシュボード `/dashboard`
+- ✅ 履歴トレンド `/v1/pulse/trending/history`
+- ✅ CSV出力 `/v1/pulse/trending?format=csv`
 
-これらは私が追加実装できます。「拡張○○を入れて」と言ってください。
+## さらなる拡張アイデア
+
+- ニュースレター自動配信（Resend API）
+- ユーザー設定の保存（特定キーワードを追跡）
+- 多言語対応（中国語サイトの追加）
+- バッチAPI移行（50%コスト削減）
