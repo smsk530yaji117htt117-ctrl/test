@@ -1,0 +1,25 @@
+name: Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest
+      - name: Refresh OpenAPI snapshot
+        run: |
+          python scripts/export_openapi.py
+          if ! git diff --quiet docs/openapi.json; then
+            echo "openapi snapshot drifted from code - run scripts/export_openapi.py and commit" >&2
+            git --no-pager diff docs/openapi.json | head -40
+            exit 1
+          fi
