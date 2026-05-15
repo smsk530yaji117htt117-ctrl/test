@@ -12,8 +12,12 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+from collections import Counter
+from io import StringIO
+import csv
+
 from fastapi import FastAPI, Header, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data" / "daily"
@@ -103,12 +107,47 @@ def devto(x_rapidapi_proxy_secret: str | None = Header(default=None)) -> dict:
 @app.get("/v1/pulse/trending")
 def trending(
     limit: int = Query(default=20, ge=1, le=50),
+    format: str = Query(default="json", pattern="^(json|csv)$"),
     x_rapidapi_proxy_secret: str | None = Header(default=None),
-) -> dict:
+):
     _check_auth(x_rapidapi_proxy_secret)
     data = _load_latest()
-    keywords = data.get("trending_keywords") or []
-    return {"generated_at": data["generated_at"], "keywords": keywords[:limit]}
+    keywords = (data.get("trending_keywords") or [])[:limit]
+    if format == "csv":
+        buf = StringIO()
+        w = csv.writer(buf)
+        w.writerow(["keyword", "count"])
+        for k in keywords:
+            w.writerow([k["keyword"], k["count"]])
+        return PlainTextResponse(buf.getvalue(), media_type="text/csv")
+    return {"generated_at": data["generated_at"], "keywords": keywords}
+
+
+@app.get("/v1/pulse/trending/history")
+def trending_history(
+    days: int = Query(default=7, ge=2, le=30),
+    limit: int = Query(default=20, ge=1, le=50),
+    x_rapidapi_proxy_secret: str | None = Header(default=None),
+) -> dict:
+    """Aggregate keyword counts across the most recent N daily snapshots."""
+    _check_auth(x_rapidapi_proxy_secret)
+    files = sorted(DATA_DIR.glob("*.json"), reverse=True)[:days]
+    if not files:
+        raise HTTPException(status_code=503, detail="no snapshots available")
+    counter: Counter = Counter()
+    per_day: dict[str, list[dict]] = {}
+    for path in files:
+        snap = json.loads(path.read_text())
+        date = path.stem
+        per_day[date] = snap.get("trending_keywords") or []
+        for k in per_day[date]:
+            counter[k["keyword"]] += k["count"]
+    overall = [{"keyword": k, "count": c} for k, c in counter.most_common(limit)]
+    return {
+        "window_days": len(files),
+        "overall": overall,
+        "per_day": {d: kws[:limit] for d, kws in per_day.items()},
+    }
 
 
 @app.get("/v1/pulse/latest")

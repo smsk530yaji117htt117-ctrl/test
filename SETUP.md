@@ -56,17 +56,20 @@ GitHub に push されるたびに自動再デプロイ。
    - **Description:** Daily aggregated tech trends from Hacker News, GitHub Trending, and Reddit.
 4. **Settings → Security** で、RapidAPIが送ってくる `X-RapidAPI-Proxy-Secret` を
    Vercelに設定したものと同じ値にする（これでRapidAPI経由のみアクセス可能になる）
-5. **Endpoints** を登録:
-   - `GET /v1/pulse/latest`
-   - `GET /v1/pulse/sources`
-   - `GET /v1/pulse/trending?limit=20`
-   - `GET /v1/pulse/hackernews?limit=20`
-   - `GET /v1/pulse/github?language=Python`
-   - `GET /v1/pulse/reddit/{subreddit}`
-   - `GET /v1/pulse/qiita`
-   - `GET /v1/pulse/zenn`
-   - `GET /v1/pulse/devto`
-   - `GET /v1/pulse/archive/{date}`
+5. **Endpoints** を登録（一括インポート推奨）:
+   - **おすすめ:** `docs/openapi.json` をアップロードすると全エンドポイントが自動登録されます
+   - 手動なら以下:
+     - `GET /v1/pulse/latest`
+     - `GET /v1/pulse/sources`
+     - `GET /v1/pulse/trending?limit=20&format=json`
+     - `GET /v1/pulse/trending/history?days=7`
+     - `GET /v1/pulse/hackernews?limit=20`
+     - `GET /v1/pulse/github?language=Python`
+     - `GET /v1/pulse/reddit/{subreddit}`
+     - `GET /v1/pulse/qiita`
+     - `GET /v1/pulse/zenn`
+     - `GET /v1/pulse/devto`
+     - `GET /v1/pulse/archive/{date}`
 6. **Pricing プラン** を設定（推奨）:
    - **Basic (Free):** 100コール/月 — 集客用
    - **Pro:** $9.99/月 — 10,000コール

@@ -50,5 +50,38 @@ vercel.json              Serverless deployment config
 | GET | `/v1/pulse/archive/{YYYY-MM-DD}` | Historical snapshot |
 | GET | `/health` | Liveness check (unauthenticated) |
 
-All endpoints except `/health` require `X-RapidAPI-Proxy-Secret` in production
-so only RapidAPI's proxy can call them.
+All endpoints except `/` and `/health` require `X-RapidAPI-Proxy-Secret` in
+production so only RapidAPI's proxy can call them.
+
+## Consumer examples
+
+Once listed on RapidAPI, clients call via the marketplace proxy:
+
+```bash
+curl -H "X-RapidAPI-Key: $KEY" \
+     -H "X-RapidAPI-Host: tech-pulse-api.p.rapidapi.com" \
+     https://tech-pulse-api.p.rapidapi.com/v1/pulse/trending
+```
+
+```python
+import httpx
+r = httpx.get(
+    "https://tech-pulse-api.p.rapidapi.com/v1/pulse/trending/history",
+    params={"days": 7, "limit": 10},
+    headers={"X-RapidAPI-Key": KEY, "X-RapidAPI-Host": "tech-pulse-api.p.rapidapi.com"},
+)
+print(r.json()["overall"])
+```
+
+```javascript
+const res = await fetch("https://tech-pulse-api.p.rapidapi.com/v1/pulse/github?language=Rust", {
+  headers: { "X-RapidAPI-Key": KEY, "X-RapidAPI-Host": "tech-pulse-api.p.rapidapi.com" },
+});
+console.log(await res.json());
+```
+
+## OpenAPI
+
+`docs/openapi.json` is a committed snapshot of the live schema. Upload it on
+RapidAPI to import every endpoint at once. CI fails if the snapshot drifts from
+the code — run `python scripts/export_openapi.py` after changing endpoints.

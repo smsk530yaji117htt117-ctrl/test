@@ -119,6 +119,30 @@ def test_trending(client):
     assert r.status_code == 200 and len(r.json()["keywords"]) <= 5
 
 
+def test_trending_csv(client):
+    r = client.get("/v1/pulse/trending?format=csv&limit=2")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/csv")
+    lines = r.text.strip().splitlines()
+    assert lines[0] == "keyword,count"
+    assert len(lines) <= 3  # header + up to 2 rows
+
+
+def test_trending_history(client):
+    r = client.get("/v1/pulse/trending/history?days=2&limit=10")
+    assert r.status_code == 200
+    body = r.json()
+    assert "overall" in body and "per_day" in body
+    assert body["window_days"] >= 1
+
+
+def test_qiita_zenn_devto(client):
+    for path in ["/v1/pulse/qiita", "/v1/pulse/zenn", "/v1/pulse/devto"]:
+        r = client.get(path)
+        assert r.status_code == 200, path
+        assert "items" in r.json(), path
+
+
 def test_auth_missing_when_required(authed_client):
     r = authed_client.get("/v1/pulse/latest")
     assert r.status_code == 401
