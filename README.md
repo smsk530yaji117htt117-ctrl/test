@@ -2,10 +2,12 @@
 
 Daily aggregated tech trends from public sources — designed as a sell-on-RapidAPI data product.
 
-- **Sources:** Hacker News, GitHub Trending, Reddit (r/programming, r/MachineLearning, r/webdev)
+- **Sources:** Hacker News, GitHub Trending, Reddit (r/programming, r/MachineLearning, r/webdev), Qiita, Zenn, Dev.to
+- **Trend extraction:** Top keywords computed across all titles each day
 - **Update cadence:** Daily, fully automated via GitHub Actions
 - **Hosting:** Vercel Python serverless (free tier)
 - **Monetization:** RapidAPI marketplace handles auth + billing + payouts
+- **Quality:** 16 pytest tests run in CI on every push
 
 ## Quick start (local)
 
@@ -35,10 +37,16 @@ vercel.json              Serverless deployment config
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/` | HTML landing page (marketing / SEO) |
 | GET | `/v1/pulse/latest` | Full latest snapshot |
+| GET | `/v1/pulse/sources` | Item counts per source |
+| GET | `/v1/pulse/trending?limit=20` | Top keywords across all titles today |
 | GET | `/v1/pulse/hackernews?limit=20` | Top HN stories |
-| GET | `/v1/pulse/github?language=Python` | GitHub repos created today |
+| GET | `/v1/pulse/github?language=Python` | GitHub trending repos (optional filter) |
 | GET | `/v1/pulse/reddit/{subreddit}` | Top posts from tracked subreddit |
+| GET | `/v1/pulse/qiita` | Qiita latest items (Japan) |
+| GET | `/v1/pulse/zenn` | Zenn daily articles (Japan) |
+| GET | `/v1/pulse/devto` | Dev.to top articles |
 | GET | `/v1/pulse/archive/{YYYY-MM-DD}` | Historical snapshot |
 | GET | `/health` | Liveness check (unauthenticated) |
 

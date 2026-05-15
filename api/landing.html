@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tech Pulse API — Daily aggregated tech trends</title>
+  <meta name="description" content="Daily aggregated tech trends from Hacker News, GitHub Trending, Reddit, Qiita, Zenn, and Dev.to — one normalized JSON API.">
+  <style>
+    :root { color-scheme: light dark; --fg:#111; --muted:#555; --bg:#fff; --accent:#0a7cff; --card:#f6f7f9; }
+    @media (prefers-color-scheme: dark){ :root { --fg:#eee; --muted:#aaa; --bg:#0b0d10; --card:#15181d; } }
+    * { box-sizing: border-box; }
+    body { font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--fg); background:var(--bg); margin:0; }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px; }
+    h1 { font-size: 2.2rem; margin: 0 0 12px; }
+    h2 { font-size: 1.3rem; margin: 36px 0 12px; }
+    p.lead { font-size: 1.15rem; color: var(--muted); margin: 0 0 24px; }
+    .badges a { display:inline-block; margin-right:8px; padding:6px 12px; border-radius:6px; background:var(--accent); color:#fff; text-decoration:none; font-size:.9rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 12px; margin: 16px 0; }
+    .card { background: var(--card); padding: 14px 16px; border-radius: 8px; }
+    .card h3 { margin: 0 0 6px; font-size: 1rem; }
+    .card p { margin: 0; color: var(--muted); font-size: .9rem; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    pre { background: var(--card); padding: 14px 16px; border-radius: 8px; overflow:auto; }
+    table { width:100%; border-collapse: collapse; font-size:.95rem; }
+    th, td { text-align:left; padding: 8px 10px; border-bottom: 1px solid #80808033; }
+    footer { color: var(--muted); font-size: .85rem; margin-top: 48px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tech Pulse API</h1>
+  <p class="lead">Daily aggregated tech trends from six public sources, normalized into one clean JSON API. Built for newsletter curators, content tools, dashboards, and analytics.</p>
+  <div class="badges">
+    <a href="/docs">Interactive Docs</a>
+    <a href="/v1/pulse/sources">Live Sample</a>
+  </div>
+
+  <h2>Sources</h2>
+  <div class="grid">
+    <div class="card"><h3>Hacker News</h3><p>Top 30 stories with score &amp; comments</p></div>
+    <div class="card"><h3>GitHub Trending</h3><p>Top 25 repos by stars (7-day push)</p></div>
+    <div class="card"><h3>Reddit</h3><p>r/programming, r/MachineLearning, r/webdev</p></div>
+    <div class="card"><h3>Qiita</h3><p>Latest 25 articles (Japan&apos;s top dev community)</p></div>
+    <div class="card"><h3>Zenn</h3><p>Daily top 25 articles (Japan)</p></div>
+    <div class="card"><h3>Dev.to</h3><p>Top 25 articles by reactions</p></div>
+  </div>
+
+  <h2>Endpoints</h2>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/latest</code></td><td>Full snapshot from all sources</td></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/trending</code></td><td>Top keywords across all titles today</td></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/sources</code></td><td>Item counts per source</td></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/hackernews</code></td><td>Hacker News top stories</td></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/github?language=Python</code></td><td>GitHub trending repos (optional filter)</td></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/reddit/{sub}</code></td><td>Subreddit top posts</td></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/qiita</code></td><td>Qiita latest items</td></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/zenn</code></td><td>Zenn daily articles</td></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/devto</code></td><td>Dev.to top articles</td></tr>
+    <tr><td>GET</td><td><code>/v1/pulse/archive/{YYYY-MM-DD}</code></td><td>Historical snapshot</td></tr>
+  </table>
+
+  <h2>Quick example</h2>
+<pre>curl -H "X-RapidAPI-Key: YOUR_KEY" \
+     -H "X-RapidAPI-Host: tech-pulse-api.p.rapidapi.com" \
+     https://tech-pulse-api.p.rapidapi.com/v1/pulse/trending</pre>
+
+  <h2>Use cases</h2>
+  <ul>
+    <li>Power a daily tech newsletter — one fetch, all sources.</li>
+    <li>Drive a dashboard of what developers are talking about today.</li>
+    <li>Train trend-detection or content recommendation models.</li>
+    <li>Backfill historical snapshots via the archive endpoint.</li>
+  </ul>
+
+  <footer>Updated daily at 00:15 UTC. All data sourced from public APIs.</footer>
+</div>
+</body>
+</html>

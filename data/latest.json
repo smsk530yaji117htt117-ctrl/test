@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-15T15:59:42.765495+00:00",
+  "generated_at": "2026-05-15T16:05:14.315004+00:00",
   "sources": {
     "hackernews": [],
     "github_trending": [
@@ -9,7 +9,7 @@
         "description": "freeCodeCamp.org's open-source codebase and curriculum. Learn math, programming, and computer science for free.",
         "language": "TypeScript",
         "stars": 444784,
-        "forks": 44578
+        "forks": 44579
       },
       {
         "name": "public-apis/public-apis",
@@ -32,8 +32,8 @@
         "url": "https://github.com/openclaw/openclaw",
         "description": "Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞 ",
         "language": "TypeScript",
-        "stars": 372118,
-        "forks": 77045
+        "stars": 372123,
+        "forks": 77046
       },
       {
         "name": "nilbuild/developer-roadmap",
@@ -48,7 +48,7 @@
         "url": "https://github.com/vinta/awesome-python",
         "description": "An opinionated list of Python frameworks, libraries, tools, and resources",
         "language": "Python",
-        "stars": 297781,
+        "stars": 297782,
         "forks": 27911
       },
       {
@@ -56,7 +56,7 @@
         "url": "https://github.com/awesome-selfhosted/awesome-selfhosted",
         "description": "A list of Free Software network services and web applications which can be hosted on your own servers",
         "language": null,
-        "stars": 292431,
+        "stars": 292432,
         "forks": 13510
       },
       {
@@ -72,7 +72,7 @@
         "url": "https://github.com/torvalds/linux",
         "description": "Linux kernel source tree",
         "language": "C",
-        "stars": 233291,
+        "stars": 233292,
         "forks": 62311
       },
       {
@@ -88,8 +88,8 @@
         "url": "https://github.com/obra/superpowers",
         "description": "An agentic skills framework & software development methodology that works.",
         "language": "Shell",
-        "stars": 192434,
-        "forks": 17114
+        "stars": 192437,
+        "forks": 17115
       },
       {
         "name": "ultraworkers/claw-code",
@@ -97,7 +97,7 @@
         "description": "The repo is finally unlocked. enjoy the party! The fastest repo in history to surpass 100K stars ⭐. Join Discord: https://discord.gg/5TUQKqFWd Built in Rust using oh-my-codex.",
         "language": "Rust",
         "stars": 191546,
-        "forks": 109894
+        "forks": 109893
       },
       {
         "name": "n8n-io/n8n",
@@ -105,7 +105,7 @@
         "description": "Fair-code workflow automation platform with native AI capabilities. Combine visual building with custom code, self-host or cloud, 400+ integrations.",
         "language": "TypeScript",
         "stars": 187975,
-        "forks": 57645
+        "forks": 57646
       },
       {
         "name": "ohmyzsh/ohmyzsh",
@@ -136,7 +136,7 @@
         "url": "https://github.com/affaan-m/everything-claude-code",
         "description": "The agent harness performance optimization system. Skills, instincts, memory, security, and research-first development for Claude Code, Codex, Opencode, Cursor and beyond.",
         "language": "JavaScript",
-        "stars": 182839,
+        "stars": 182842,
         "forks": 28164
       },
       {
@@ -168,7 +168,7 @@
         "url": "https://github.com/ollama/ollama",
         "description": "Get up and running with Kimi-K2.5, GLM-5, MiniMax, DeepSeek, gpt-oss, Qwen, Gemma and other models.",
         "language": "Go",
-        "stars": 171454,
+        "stars": 171453,
         "forks": 16133
       },
       {
@@ -184,7 +184,7 @@
         "url": "https://github.com/anomalyco/opencode",
         "description": "The open source coding agent.",
         "language": "TypeScript",
-        "stars": 160709,
+        "stars": 160717,
         "forks": 18853
       },
       {
@@ -204,6 +204,111 @@
         "forks": 46135
       }
     ],
-    "reddit": {}
-  }
+    "reddit": {},
+    "qiita": [],
+    "zenn": [],
+    "devto": []
+  },
+  "trending_keywords": [
+    {
+      "keyword": "framework",
+      "count": 5
+    },
+    {
+      "keyword": "list",
+      "count": 4
+    },
+    {
+      "keyword": "source",
+      "count": 4
+    },
+    {
+      "keyword": "free",
+      "count": 3
+    },
+    {
+      "keyword": "software",
+      "count": 3
+    },
+    {
+      "keyword": "open",
+      "count": 3
+    },
+    {
+      "keyword": "code",
+      "count": 3
+    },
+    {
+      "keyword": "flutter",
+      "count": 3
+    },
+    {
+      "keyword": "freecodecamp",
+      "count": 2
+    },
+    {
+      "keyword": "programming",
+      "count": 2
+    },
+    {
+      "keyword": "public-apis",
+      "count": 2
+    },
+    {
+      "keyword": "books",
+      "count": 2
+    },
+    {
+      "keyword": "openclaw",
+      "count": 2
+    },
+    {
+      "keyword": "own",
+      "count": 2
+    },
+    {
+      "keyword": "other",
+      "count": 2
+    },
+    {
+      "keyword": "python",
+      "count": 2
+    },
+    {
+      "keyword": "frameworks",
+      "count": 2
+    },
+    {
+      "keyword": "libraries",
+      "count": 2
+    },
+    {
+      "keyword": "tools",
+      "count": 2
+    },
+    {
+      "keyword": "awesome-selfhosted",
+      "count": 2
+    },
+    {
+      "keyword": "web",
+      "count": 2
+    },
+    {
+      "keyword": "native",
+      "count": 2
+    },
+    {
+      "keyword": "linux",
+      "count": 2
+    },
+    {
+      "keyword": "tensorflow",
+      "count": 2
+    },
+    {
+      "keyword": "machine",
+      "count": 2
+    }
+  ]
 }

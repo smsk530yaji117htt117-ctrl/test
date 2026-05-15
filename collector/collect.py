@@ -21,6 +21,9 @@ HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 GITHUB_SEARCH = "https://api.github.com/search/repositories"
 REDDIT_TOP = "https://www.reddit.com/r/{sub}/top.json?t=day&limit=25"
+QIITA_ITEMS = "https://qiita.com/api/v2/items?per_page=25"
+ZENN_ARTICLES = "https://zenn.dev/api/articles?order=daily"
+DEVTO_ARTICLES = "https://dev.to/api/articles?per_page=25&top=1"
 
 USER_AGENT = "tech-pulse-api/1.0 (+https://github.com/)"
 SUBREDDITS = ["programming", "MachineLearning", "webdev"]
@@ -79,6 +82,45 @@ def fetch_reddit(client: httpx.Client, sub: str) -> list[dict]:
     } for c in children]
 
 
+def fetch_qiita(client: httpx.Client) -> list[dict]:
+    r = client.get(QIITA_ITEMS, timeout=20)
+    r.raise_for_status()
+    return [{
+        "title": it.get("title"),
+        "url": it.get("url"),
+        "likes": it.get("likes_count", 0),
+        "stocks": it.get("stocks_count", 0),
+        "tags": [t.get("name") for t in it.get("tags", [])],
+        "author": (it.get("user") or {}).get("id"),
+    } for it in r.json()]
+
+
+def fetch_zenn(client: httpx.Client) -> list[dict]:
+    r = client.get(ZENN_ARTICLES, timeout=20)
+    r.raise_for_status()
+    articles = r.json().get("articles", [])
+    return [{
+        "title": a.get("title"),
+        "url": f"https://zenn.dev{a.get('path', '')}",
+        "likes": a.get("liked_count", 0),
+        "comments": a.get("comments_count", 0),
+        "topic": (a.get("publication") or {}).get("name") or a.get("topics"),
+    } for a in articles[:25]]
+
+
+def fetch_devto(client: httpx.Client) -> list[dict]:
+    r = client.get(DEVTO_ARTICLES, timeout=20)
+    r.raise_for_status()
+    return [{
+        "title": it.get("title"),
+        "url": it.get("url"),
+        "reactions": it.get("public_reactions_count", 0),
+        "comments": it.get("comments_count", 0),
+        "tags": it.get("tag_list", []),
+        "author": (it.get("user") or {}).get("username"),
+    } for it in r.json()]
+
+
 def _safe(label: str, fn, *args, **kwargs):
     try:
         return fn(*args, **kwargs)
@@ -100,9 +142,47 @@ def build_snapshot() -> dict:
                 "hackernews": _safe("hackernews", fetch_hn, client),
                 "github_trending": _safe("github", fetch_github_trending, client),
                 "reddit": reddit_data,
+                "qiita": _safe("qiita", fetch_qiita, client),
+                "zenn": _safe("zenn", fetch_zenn, client),
+                "devto": _safe("devto", fetch_devto, client),
             },
         }
+    snapshot["trending_keywords"] = compute_keywords(snapshot["sources"])
     return snapshot
+
+
+_STOPWORDS = {
+    "the", "a", "an", "and", "or", "but", "of", "to", "in", "on", "for", "with",
+    "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do",
+    "does", "did", "this", "that", "these", "those", "it", "its", "i", "you", "we",
+    "they", "he", "she", "as", "at", "by", "from", "how", "what", "why", "when",
+    "where", "your", "my", "our", "their", "his", "her", "all", "any", "new", "use",
+    "using", "used", "can", "will", "not", "no", "yes", "into", "out", "up", "down",
+    "more", "most", "less", "least", "than", "vs", "via", "about", "after", "before",
+}
+
+
+def compute_keywords(sources: dict, top_n: int = 25) -> list[dict]:
+    import re
+    from collections import Counter
+    counter: Counter = Counter()
+    def add_text(items, fields):
+        for it in items or []:
+            if not isinstance(it, dict):
+                continue
+            text = " ".join(str(it.get(f) or "") for f in fields)
+            for tok in re.findall(r"[A-Za-z][A-Za-z0-9+#.\-]{1,}", text.lower()):
+                if tok in _STOPWORDS or len(tok) < 3:
+                    continue
+                counter[tok] += 1
+    add_text(sources.get("hackernews"), ["title"])
+    add_text(sources.get("github_trending"), ["name", "description"])
+    add_text(sources.get("qiita"), ["title"])
+    add_text(sources.get("zenn"), ["title"])
+    add_text(sources.get("devto"), ["title"])
+    for posts in (sources.get("reddit") or {}).values():
+        add_text(posts, ["title"])
+    return [{"keyword": k, "count": c} for k, c in counter.most_common(top_n)]
 
 
 def main() -> None:

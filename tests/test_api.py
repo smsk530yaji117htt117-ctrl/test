@@ -1,0 +1,134 @@
+"""End-to-end tests for the API.
+
+Uses a fixture snapshot so tests don't depend on the live collector.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+ROOT = Path(__file__).resolve().parent.parent
+FIXTURE = {
+    "generated_at": "2026-05-15T00:00:00+00:00",
+    "sources": {
+        "hackernews": [{"id": 1, "title": "Rust beats Python", "url": "https://x", "score": 100, "comments": 10}],
+        "github_trending": [
+            {"name": "owner/py-repo", "url": "https://x", "language": "Python", "stars": 50, "forks": 5},
+            {"name": "owner/rs-repo", "url": "https://x", "language": "Rust", "stars": 80, "forks": 8},
+        ],
+        "reddit": {"programming": [{"title": "Rust is fast", "url": "https://x", "score": 10, "comments": 1, "subreddit": "programming"}]},
+        "qiita": [{"title": "Python tips", "url": "https://x", "likes": 5, "stocks": 2, "tags": ["Python"]}],
+        "zenn": [{"title": "Zenn article", "url": "https://x", "likes": 3, "comments": 0}],
+        "devto": [{"title": "Dev post", "url": "https://x", "reactions": 7, "comments": 2, "tags": ["python"]}],
+    },
+    "trending_keywords": [{"keyword": "rust", "count": 2}, {"keyword": "python", "count": 2}],
+}
+
+
+@pytest.fixture(autouse=True)
+def seed(tmp_path, monkeypatch):
+    data_dir = ROOT / "data"
+    daily = data_dir / "daily"
+    daily.mkdir(parents=True, exist_ok=True)
+    latest = data_dir / "latest.json"
+    backup_latest = latest.read_text() if latest.exists() else None
+    backup_archive = daily / "2026-05-15.json"
+    backup_archive_data = backup_archive.read_text() if backup_archive.exists() else None
+    latest.write_text(json.dumps(FIXTURE))
+    backup_archive.write_text(json.dumps(FIXTURE))
+    yield
+    if backup_latest is not None:
+        latest.write_text(backup_latest)
+    if backup_archive_data is not None:
+        backup_archive.write_text(backup_archive_data)
+
+
+@pytest.fixture
+def client(monkeypatch):
+    monkeypatch.delenv("RAPIDAPI_PROXY_SECRET", raising=False)
+    from api import main as api_main
+    api_main.RAPIDAPI_SECRET = None
+    return TestClient(api_main.app)
+
+
+@pytest.fixture
+def authed_client(monkeypatch):
+    monkeypatch.setenv("RAPIDAPI_PROXY_SECRET", "secret")
+    from api import main as api_main
+    api_main.RAPIDAPI_SECRET = "secret"
+    return TestClient(api_main.app)
+
+
+def test_health(client):
+    r = client.get("/health")
+    assert r.status_code == 200 and r.json()["ok"] is True
+
+
+def test_landing(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "Tech Pulse API" in r.text
+
+
+def test_latest(client):
+    r = client.get("/v1/pulse/latest")
+    assert r.status_code == 200
+    assert "sources" in r.json()
+
+
+def test_sources_summary(client):
+    r = client.get("/v1/pulse/sources")
+    assert r.status_code == 200
+    avail = r.json()["available"]
+    assert avail["hackernews"] == 1
+    assert avail["github_trending"] == 2
+
+
+def test_github_filter_by_language(client):
+    r = client.get("/v1/pulse/github?language=python")
+    assert r.status_code == 200
+    items = r.json()["items"]
+    assert len(items) == 1 and items[0]["language"] == "Python"
+
+
+def test_hn_limit(client):
+    r = client.get("/v1/pulse/hackernews?limit=1")
+    assert r.status_code == 200 and len(r.json()["items"]) == 1
+
+
+def test_reddit_missing(client):
+    r = client.get("/v1/pulse/reddit/nope")
+    assert r.status_code == 404
+
+
+def test_archive_valid(client):
+    r = client.get("/v1/pulse/archive/2026-05-15")
+    assert r.status_code == 200
+
+
+def test_archive_bad_date(client):
+    r = client.get("/v1/pulse/archive/not-a-date")
+    assert r.status_code == 400
+
+
+def test_trending(client):
+    r = client.get("/v1/pulse/trending?limit=5")
+    assert r.status_code == 200 and len(r.json()["keywords"]) <= 5
+
+
+def test_auth_missing_when_required(authed_client):
+    r = authed_client.get("/v1/pulse/latest")
+    assert r.status_code == 401
+
+
+def test_auth_correct(authed_client):
+    r = authed_client.get("/v1/pulse/latest", headers={"X-RapidAPI-Proxy-Secret": "secret"})
+    assert r.status_code == 200
+
+
+def test_health_open_even_when_secret_set(authed_client):
+    r = authed_client.get("/health")
+    assert r.status_code == 200

@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data" / "daily"
@@ -46,9 +46,69 @@ def _load_date(date: str) -> dict:
     return json.loads(path.read_text())
 
 
+LANDING_HTML = (ROOT / "api" / "landing.html")
+
+
+@app.get("/", response_class=HTMLResponse)
+def landing() -> HTMLResponse:
+    if LANDING_HTML.exists():
+        return HTMLResponse(LANDING_HTML.read_text())
+    return HTMLResponse("<h1>Tech Pulse API</h1><p>See /docs</p>")
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True, "time": datetime.now(timezone.utc).isoformat()}
+
+
+@app.get("/v1/pulse/sources")
+def sources(x_rapidapi_proxy_secret: str | None = Header(default=None)) -> dict:
+    _check_auth(x_rapidapi_proxy_secret)
+    data = _load_latest()
+    src = data.get("sources", {})
+    return {
+        "generated_at": data["generated_at"],
+        "available": {
+            "hackernews": len(src.get("hackernews", [])),
+            "github_trending": len(src.get("github_trending", [])),
+            "reddit": {k: len(v) for k, v in (src.get("reddit") or {}).items()},
+            "qiita": len(src.get("qiita", [])),
+            "zenn": len(src.get("zenn", [])),
+            "devto": len(src.get("devto", [])),
+        },
+    }
+
+
+@app.get("/v1/pulse/qiita")
+def qiita(x_rapidapi_proxy_secret: str | None = Header(default=None)) -> dict:
+    _check_auth(x_rapidapi_proxy_secret)
+    data = _load_latest()
+    return {"generated_at": data["generated_at"], "items": data["sources"].get("qiita", [])}
+
+
+@app.get("/v1/pulse/zenn")
+def zenn(x_rapidapi_proxy_secret: str | None = Header(default=None)) -> dict:
+    _check_auth(x_rapidapi_proxy_secret)
+    data = _load_latest()
+    return {"generated_at": data["generated_at"], "items": data["sources"].get("zenn", [])}
+
+
+@app.get("/v1/pulse/devto")
+def devto(x_rapidapi_proxy_secret: str | None = Header(default=None)) -> dict:
+    _check_auth(x_rapidapi_proxy_secret)
+    data = _load_latest()
+    return {"generated_at": data["generated_at"], "items": data["sources"].get("devto", [])}
+
+
+@app.get("/v1/pulse/trending")
+def trending(
+    limit: int = Query(default=20, ge=1, le=50),
+    x_rapidapi_proxy_secret: str | None = Header(default=None),
+) -> dict:
+    _check_auth(x_rapidapi_proxy_secret)
+    data = _load_latest()
+    keywords = data.get("trending_keywords") or []
+    return {"generated_at": data["generated_at"], "keywords": keywords[:limit]}
 
 
 @app.get("/v1/pulse/latest")
