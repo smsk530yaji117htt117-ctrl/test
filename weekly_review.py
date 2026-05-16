@@ -11,7 +11,7 @@ from setup_env import load_env
 load_env()
 
 from config import NOTION_PAGES
-from notion_client import get_block_children
+from notion_utils import get_block_children
 from notion_write_safe import write_to_notion_page, create_daily_page
 from ai_client import ask_claude
 from logger import write_log, print_safe

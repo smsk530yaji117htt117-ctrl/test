@@ -37,25 +37,20 @@ DB_ID = os.environ.get("NOTION_DATABASE_ID", "")
 # ════════════════════════════════════════════════════════════════════════
 # 1. Notionから Pending 行を取得
 # ════════════════════════════════════════════════════════════════════════
+from notion_utils import query_database, update_page_properties
+
 
 def get_pending_questions() -> list[dict]:
     """NotionのAI Consensus LogからStatus=Pendingの行をすべて取得する"""
-    from notion_client import Client
-    notion = Client(auth=os.environ["NOTION_TOKEN"])
-
-    resp = notion.databases.query(
-        database_id=DB_ID,
-        filter={"property": "Status", "select": {"equals": "Pending"}},
+    return query_database(
+        DB_ID,
+        filter_body={"property": "Status", "select": {"equals": "Pending"}},
     )
-    return resp.get("results", [])
 
 
-def set_status(notion, page_id: str, status: str) -> None:
+def set_status(page_id: str, status: str) -> None:
     """指定ページのStatusを変更する"""
-    notion.pages.update(
-        page_id=page_id,
-        properties={"Status": {"select": {"name": status}}},
-    )
+    update_page_properties(page_id, {"Status": {"select": {"name": status}}})
 
 
 def get_question_text(page: dict) -> str:
@@ -217,31 +212,28 @@ def _truncate(text: str, limit: int = 2000) -> str:
     return text[:limit] if len(text) > limit else text
 
 
-def write_back_to_notion(notion, page_id: str,
+def write_back_to_notion(page_id: str,
                           claude_r: str, gemini_r: str, gpt_r: str,
                           synthesis: str, tag: str) -> None:
     """3社の回答・統合分析・ステータスをNotionページに書き戻す"""
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    notion.pages.update(
-        page_id=page_id,
-        properties={
-            "Status":          {"select": {"name": "Complete"}},
-            "Claude_Response": {"rich_text": [{"text": {"content": _truncate(claude_r)}}]},
-            "Gemini_Response": {"rich_text": [{"text": {"content": _truncate(gemini_r)}}]},
-            "GPT_Response":    {"rich_text": [{"text": {"content": _truncate(gpt_r)}}]},
-            "Synthesis":       {"rich_text": [{"text": {"content": _truncate(synthesis)}}]},
-            "Tags":            {"multi_select": [{"name": tag}]},
-            "Completed":       {"date": {"start": now_iso}},
-        },
-    )
+    update_page_properties(page_id, {
+        "Status":          {"select": {"name": "Complete"}},
+        "Claude_Response": {"rich_text": [{"text": {"content": _truncate(claude_r)}}]},
+        "Gemini_Response": {"rich_text": [{"text": {"content": _truncate(gemini_r)}}]},
+        "GPT_Response":    {"rich_text": [{"text": {"content": _truncate(gpt_r)}}]},
+        "Synthesis":       {"rich_text": [{"text": {"content": _truncate(synthesis)}}]},
+        "Tags":            {"multi_select": [{"name": tag}]},
+        "Completed":       {"date": {"start": now_iso}},
+    })
 
 
 # ════════════════════════════════════════════════════════════════════════
 # 5. メイン処理
 # ════════════════════════════════════════════════════════════════════════
 
-async def process_one(notion, page: dict) -> None:
+async def process_one(page: dict) -> None:
     """1件の質問を処理する"""
     page_id  = page["id"]
     question = get_question_text(page)
@@ -251,7 +243,7 @@ async def process_one(notion, page: dict) -> None:
     print(f"{'='*60}")
 
     # Runningに変更（処理中の表示）
-    set_status(notion, page_id, "Running")
+    set_status(page_id, "Running")
     print("▶ Status → Running")
 
     # 3社に並列問い合わせ
@@ -267,14 +259,11 @@ async def process_one(notion, page: dict) -> None:
     print(f"  タグ判定: [{tag}]")
 
     # Notionに書き戻し
-    write_back_to_notion(notion, page_id, claude_r, gemini_r, gpt_r, synthesis, tag)
+    write_back_to_notion(page_id, claude_r, gemini_r, gpt_r, synthesis, tag)
     print("▶ Notionに書き戻し完了 → Status: Complete")
 
 
 async def main() -> None:
-    from notion_client import Client
-    notion = Client(auth=os.environ["NOTION_TOKEN"])
-
     # Pending行を取得
     pages = get_pending_questions()
 
@@ -288,14 +277,14 @@ async def main() -> None:
     # 1件ずつ順番に処理（API負荷分散のため直列処理）
     for page in pages:
         try:
-            await process_one(notion, page)
+            await process_one(page)
         except Exception as e:
             page_id = page["id"]
             question = get_question_text(page)
             print(f"❌ エラー（{question[:30]}...）: {e}")
             # エラー時はStatusをPendingに戻す
             try:
-                set_status(notion, page_id, "Pending")
+                set_status(page_id, "Pending")
             except Exception:
                 pass
 

@@ -18,7 +18,7 @@ try:
 except ImportError:
     pass
 
-from notion_client import append_section, append_paragraph, create_child_page
+from notion_utils import append_section, append_paragraph, create_child_page
 
 
 def write_to_notion_page(page_id: str, heading: str, body: str, level: int = 2) -> bool:

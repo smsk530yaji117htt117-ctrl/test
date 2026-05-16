@@ -146,6 +146,15 @@ def query_database(database_id: str, filter_body: dict | None = None) -> list[di
     return result.get("results", [])
 
 
+def update_page_properties(page_id: str, properties: dict) -> dict:
+    """ページの複数プロパティを一括更新する"""
+    return _request(
+        "PATCH",
+        f"/pages/{page_id.replace('-', '')}",
+        {"properties": properties},
+    )
+
+
 # ─────────────────────────────────────────────
 # 動作確認用
 # ─────────────────────────────────────────────
