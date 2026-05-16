@@ -1,0 +1,7 @@
+services:
+  - type: cron
+    name: personal-os-consensus
+    env: python
+    schedule: "*/10 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python consensus.py
