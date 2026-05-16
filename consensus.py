@@ -37,7 +37,7 @@ DB_ID = os.environ.get("NOTION_DATABASE_ID", "")
 # ════════════════════════════════════════════════════════════════════════
 # 1. Notionから Pending 行を取得
 # ════════════════════════════════════════════════════════════════════════
-from notion_utils import query_database, update_page_properties
+from notion_utils import query_database, update_page_properties, _split_text
 
 
 def get_pending_questions() -> list[dict]:
@@ -213,11 +213,6 @@ async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str) ->
 # 4. Notionへの書き戻し
 # ════════════════════════════════════════════════════════════════════════
 
-def _truncate(text: str, limit: int = 2000) -> str:
-    """Notion rich_textの2000文字制限に合わせてカットする"""
-    return text[:limit] if len(text) > limit else text
-
-
 def write_back_to_notion(page_id: str,
                           claude_r: str, gemini_r: str, gpt_r: str,
                           synthesis: str, tag: str) -> None:
@@ -226,10 +221,10 @@ def write_back_to_notion(page_id: str,
 
     update_page_properties(page_id, {
         "Status":          {"select": {"name": "Complete"}},
-        "Claude_Response": {"rich_text": [{"text": {"content": _truncate(claude_r)}}]},
-        "Gemini_Response": {"rich_text": [{"text": {"content": _truncate(gemini_r)}}]},
-        "GPT_Response":    {"rich_text": [{"text": {"content": _truncate(gpt_r)}}]},
-        "Synthesis":       {"rich_text": [{"text": {"content": _truncate(synthesis)}}]},
+        "Claude_Response": {"rich_text": _split_text(claude_r)},
+        "Gemini_Response": {"rich_text": _split_text(gemini_r)},
+        "GPT_Response":    {"rich_text": _split_text(gpt_r)},
+        "Synthesis":       {"rich_text": _split_text(synthesis)},
         "Tags":            {"multi_select": [{"name": tag}]},
         "Completed":       {"date": {"start": now_iso}},
     })
