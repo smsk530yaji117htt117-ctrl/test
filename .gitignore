@@ -1,5 +1,6 @@
-# 環境変数・秘密情報
+# 環境変数・秘密情報（APIキーを含むため除外）
 .env
+quick_start.bat
 
 # Python仮想環境
 venv/
