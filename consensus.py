@@ -37,7 +37,15 @@ DB_ID = os.environ.get("NOTION_DATABASE_ID", "")
 # ════════════════════════════════════════════════════════════════════════
 # 1. Notionから Pending 行を取得
 # ════════════════════════════════════════════════════════════════════════
-from notion_utils import query_database, update_page_properties, _split_text
+from notion_utils import query_database, update_page_properties
+
+
+def _to_rich_text(text: str) -> list[dict]:
+    """テキストを2000字ごとに分割してNotion rich_textブロックリストを返す"""
+    limit = 2000
+    if not text:
+        return [{"text": {"content": ""}}]
+    return [{"text": {"content": text[i : i + limit]}} for i in range(0, len(text), limit)]
 
 
 def get_pending_questions() -> list[dict]:
@@ -221,10 +229,10 @@ def write_back_to_notion(page_id: str,
 
     update_page_properties(page_id, {
         "Status":          {"select": {"name": "Complete"}},
-        "Claude_Response": {"rich_text": _split_text(claude_r)},
-        "Gemini_Response": {"rich_text": _split_text(gemini_r)},
-        "GPT_Response":    {"rich_text": _split_text(gpt_r)},
-        "Synthesis":       {"rich_text": _split_text(synthesis)},
+        "Claude_Response": {"rich_text": _to_rich_text(claude_r)},
+        "Gemini_Response": {"rich_text": _to_rich_text(gemini_r)},
+        "GPT_Response":    {"rich_text": _to_rich_text(gpt_r)},
+        "Synthesis":       {"rich_text": _to_rich_text(synthesis)},
         "Tags":            {"multi_select": [{"name": tag}]},
         "Completed":       {"date": {"start": now_iso}},
     })
