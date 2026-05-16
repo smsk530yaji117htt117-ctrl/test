@@ -4,7 +4,7 @@ consensus.py — Personal OS Consensus メインスクリプト
 Claude・Gemini・OpenAIの3社に同じ質問を投げて統合分析を生成し、Notionに保存する
 
 使い方：
-  venv\Scripts\activate
+  venv\\Scripts\\activate
   python consensus.py
 """
 
