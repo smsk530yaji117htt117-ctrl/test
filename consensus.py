@@ -27,7 +27,7 @@ load_dotenv()
 
 # ─── 使用モデル設定 ───────────────────────────────────────────────────────────
 CLAUDE_MODEL  = "claude-sonnet-4-6"   # メイン作業モデル
-GEMINI_MODEL  = "gemini-2.0-flash"    # 情報収集・裏取り
+GEMINI_MODEL  = "gemini-2.5-flash"    # 情報収集・裏取り
 OPENAI_MODEL  = "gpt-4o"              # 汎用
 
 # ─── Notionプロパティ名（DBスキーマと一致させる）──────────────────────────────
@@ -94,15 +94,21 @@ async def ask_gemini(question: str) -> str:
     if not api_key:
         return "[スキップ：Gemini APIキー未設定]"
 
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(GEMINI_MODEL)
+    from google import genai
+    from google.genai import types
+    client = genai.Client(api_key=api_key)
 
     for attempt in range(3):
         try:
-            # Geminiは同期APIなのでスレッドで実行
             loop = asyncio.get_event_loop()
-            resp = await loop.run_in_executor(None, model.generate_content, question)
+            resp = await loop.run_in_executor(
+                None,
+                lambda: client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=question,
+                    config=types.GenerateContentConfig(max_output_tokens=2048),
+                ),
+            )
             return resp.text
         except Exception as e:
             if attempt == 2:

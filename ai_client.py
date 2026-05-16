@@ -43,10 +43,14 @@ def ask_openai(prompt: str, system: str = "") -> str:
 
 def ask_gemini(prompt: str) -> str:
     """Gemini に問い合わせる（情報収集・裏取り用）"""
-    import google.generativeai as genai
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    model = genai.GenerativeModel(GEMINI_MODEL)
-    resp = model.generate_content(prompt)
+    from google import genai
+    from google.genai import types
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    resp = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(max_output_tokens=2048),
+    )
     return resp.text
 
 

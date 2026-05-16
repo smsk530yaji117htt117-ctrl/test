@@ -20,7 +20,7 @@ NOTION_PAGES = {
 CLAUDE_MODEL   = "claude-haiku-4-5-20251001"   # Haiku: 軽量タスク用
 CLAUDE_MODEL_S = "claude-sonnet-4-6"           # Sonnet: 高品質タスク用
 OPENAI_MODEL   = "gpt-4o-mini"                 # OpenAI: 汎用
-GEMINI_MODEL   = "gemini-2.0-flash"            # Gemini: 情報収集・裏取り
+GEMINI_MODEL   = "gemini-2.5-flash"            # Gemini: 情報収集・裏取り
 
 # ─── ログ設定 ─────────────────────────────────────────────────────────────────
 LOG_DIR           = "logs"
