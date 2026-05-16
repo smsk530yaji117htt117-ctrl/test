@@ -1,0 +1,16 @@
+# 環境変数ファイル（トークン等を含むため除外）
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+
+# ログ
+*.log
+log_archive_*.txt
+
+# macOS
+.DS_Store
