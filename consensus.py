@@ -37,7 +37,7 @@ DB_ID = os.environ.get("NOTION_DATABASE_ID", "")
 # ════════════════════════════════════════════════════════════════════════
 # 1. Notionから Pending 行を取得
 # ════════════════════════════════════════════════════════════════════════
-from notion_utils import query_database, update_page_properties, to_rich_text
+from notion_utils import query_database, update_page_properties, to_rich_text, get_page
 
 
 def get_pending_questions() -> list[dict]:
@@ -219,7 +219,8 @@ def write_back_to_notion(page_id: str,
     """3社の回答・統合分析・ステータスをNotionページに書き戻す"""
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    update_page_properties(page_id, {
+    # 書き戻すプロパティを組み立てる
+    properties = {
         "Status":          {"select": {"name": "Complete"}},
         "Claude_Response": {"rich_text": to_rich_text(claude_r)},
         "Gemini_Response": {"rich_text": to_rich_text(gemini_r)},
@@ -227,7 +228,15 @@ def write_back_to_notion(page_id: str,
         "Synthesis":       {"rich_text": to_rich_text(synthesis)},
         "Tags":            {"multi_select": [{"name": tag}]},
         "Completed":       {"date": {"start": now_iso}},
-    })
+    }
+
+    # Depthが空のときだけ Consensus を入れる（既設定は上書きしない）
+    page = get_page(page_id)
+    depth_current = page.get("properties", {}).get("Depth", {}).get("select")
+    if depth_current is None:
+        properties["Depth"] = {"select": {"name": "Consensus"}}
+
+    update_page_properties(page_id, properties)
 
 
 # ════════════════════════════════════════════════════════════════════════
