@@ -235,25 +235,16 @@ def write_back_to_notion(page_id: str,
     depth_prop = page.get("properties", {}).get("Depth", {})
     depth_current = depth_prop.get("select")
 
-    # デバッグ：Notion APIが返すDepthの生データと判定結果を出力
-    print(f"DEBUG: Depth property raw = {depth_prop}")
-    print(f"DEBUG: depth_current = {repr(depth_current)}")
-
     # None・空dict・{"name": None}いずれも「未設定」として扱う
     depth_is_empty = (
         depth_current is None
         or depth_current == {}
         or depth_current.get("name") is None
     )
-    print(f"DEBUG: depth_is_empty = {depth_is_empty}")
 
     if depth_is_empty:
         properties["Depth"] = {"select": {"name": "Consensus"}}
-        print("DEBUG: Depthが空のため Consensus を追加します")
-    else:
-        print(f"DEBUG: Depth={depth_current.get('name')} が既設定のためスキップ")
 
-    print(f"DEBUG: 送信するproperties keys = {list(properties.keys())}")
     update_page_properties(page_id, properties)
 
 
