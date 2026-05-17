@@ -48,39 +48,21 @@ def _request(method: str, path: str, body: dict | None = None) -> dict:
         raise RuntimeError(f"Notion API エラー {e.code}: {error_body}") from e
 
 
-def to_rich_text(text: str) -> list:
+def to_rich_text(text: str, chunk_size: int = 1500) -> list:
     """
-    Notionのrich_text形式に変換する関数。
-    NotionはJavaScript（UTF-16）で文字数をカウントするため、
-    BMP外の文字（絵文字など）はPythonのlen()より多くカウントされる。
-    UTF-16コード単位で正確に2000字以内になるよう分割する。
-
-    引数：
-        text: 変換したい文字列
-    戻り値：
-        Notionに渡せるrich_textブロックのリスト
+    Notion rich_text形式へ変換する。
+    Notionのtext.contentは1要素2000文字制限があるため、
+    安全マージンを取って1500文字ごとに分割する。
     """
     if not text:
         return [{"type": "text", "text": {"content": ""}}]
 
-    LIMIT = 2000  # NotionのUTF-16コード単位での上限
-    chunks = []
-    start = 0
+    chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
 
-    while start < len(text):
-        end = start
-        utf16_count = 0
-        while end < len(text):
-            # BMP外（U+10000以上）の文字はUTF-16で2コード単位になる
-            char_len = 2 if ord(text[end]) > 0xFFFF else 1
-            if utf16_count + char_len > LIMIT:
-                break
-            utf16_count += char_len
-            end += 1
-        chunks.append(text[start:end])
-        start = end
-
-    return [{"type": "text", "text": {"content": chunk}} for chunk in chunks]
+    return [
+        {"type": "text", "text": {"content": chunk}}
+        for chunk in chunks
+    ]
 
 
 def _split_text(text: str) -> list[dict]:
