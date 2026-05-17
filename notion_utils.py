@@ -48,12 +48,25 @@ def _request(method: str, path: str, body: dict | None = None) -> dict:
         raise RuntimeError(f"Notion API エラー {e.code}: {error_body}") from e
 
 
+def to_rich_text(text: str) -> list:
+    """
+    Notionのrich_text形式に変換する関数。
+    Notionは1ブロック2000字制限があるため、1999字ごとに分割する。
+
+    引数：
+        text: 変換したい文字列
+    戻り値：
+        Notionに渡せるrich_textブロックのリスト
+    """
+    if not text:
+        return [{"type": "text", "text": {"content": ""}}]
+    chunks = [text[i:i+1999] for i in range(0, len(text), 1999)]
+    return [{"type": "text", "text": {"content": chunk}} for chunk in chunks]
+
+
 def _split_text(text: str) -> list[dict]:
-    """テキストを2000文字以内の rich_text ブロックリストに分割する"""
-    chunks = []
-    for i in range(0, len(text), TEXT_LIMIT):
-        chunks.append({"text": {"content": text[i : i + TEXT_LIMIT]}})
-    return chunks if chunks else [{"text": {"content": ""}}]
+    """後方互換用。新規コードはto_rich_text()を使うこと"""
+    return to_rich_text(text)
 
 
 def _paragraph_block(text: str) -> dict:
