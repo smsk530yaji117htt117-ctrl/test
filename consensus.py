@@ -31,6 +31,15 @@ CLAUDE_MODEL  = "claude-sonnet-4-6"   # メイン作業モデル
 GEMINI_MODEL  = "gemini-2.5-flash"    # 情報収集・裏取り
 OPENAI_MODEL  = "gpt-4o"              # 汎用
 
+# ─── Gemini 役割指示 ──────────────────────────────────────────────────────────
+GEMINI_ROLE_INSTRUCTION = """あなたの役割は「観点出し」です。
+以下のルールを必ず守ってください：
+- 回答は400字以内に収めてください
+- 箇条書きで3〜5点に絞って回答してください
+- 長文の説明・設計・統合判断はしないでください
+- 調査・比較・ファクト確認に集中してください
+"""
+
 # ─── Notionプロパティ名（DBスキーマと一致させる）──────────────────────────────
 DB_ID = os.environ.get("NOTION_DATABASE_ID", "")
 
@@ -231,7 +240,7 @@ async def ask_gemini(question: str) -> str:
                 None,
                 lambda: client.models.generate_content(
                     model=GEMINI_MODEL,
-                    contents=question,
+                    contents=GEMINI_ROLE_INSTRUCTION + question,
                     config=types.GenerateContentConfig(max_output_tokens=2048),
                 ),
             )
