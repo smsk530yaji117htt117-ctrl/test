@@ -151,11 +151,13 @@ def search_pages(query: str, page_size: int = 10) -> list[dict]:
     return result.get("results", [])
 
 
-def query_database(database_id: str, filter_body: dict | None = None) -> list[dict]:
+def query_database(database_id: str, filter_body: dict | None = None, sorts: list | None = None) -> list[dict]:
     """データベースをクエリする"""
     body: dict = {"page_size": 100}
     if filter_body:
         body["filter"] = filter_body
+    if sorts:
+        body["sorts"] = sorts
     result = _request("POST", f"/databases/{database_id.replace('-', '')}/query", body)
     return result.get("results", [])
 

@@ -145,10 +145,11 @@ def handle_running_timeouts() -> None:
 
 
 def get_pending_questions() -> list[dict]:
-    """NotionのAI Consensus LogからStatus=Pendingの行をすべて取得する"""
+    """NotionのAI Consensus LogからStatus=Pendingの行を古い順（FIFO）で取得する"""
     return query_database(
         DB_ID,
         filter_body={"property": "Status", "select": {"equals": "Pending"}},
+        sorts=[{"timestamp": "created_time", "direction": "ascending"}],
     )
 
 
