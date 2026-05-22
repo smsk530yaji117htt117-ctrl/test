@@ -35,15 +35,24 @@ PROPERTY_FIELDS = [
     "Do Not Touch",
     "From AI",
     "To AI",
-]
-
-INPUT_FIELDS = PROPERTY_FIELDS + [
-    "Raw Log",
     "Touched Files",
     "Risks",
     "Commands Run",
     "Notes",
 ]
+
+V2_SCOPE_FIELDS = [
+    "Working Directory",
+    "Target Files",
+    "Execution Environment",
+    "Git Managed",
+    "Acceptance Criteria",
+    "Escalation Rule",
+]
+
+INPUT_FIELDS = PROPERTY_FIELDS + [
+    "Raw Log",
+] + V2_SCOPE_FIELDS
 
 DEFAULT_PROPERTY_TYPES = {
     "Task": "title",
@@ -182,10 +191,30 @@ def build_property_value(field: str, value: str, schema: dict[str, Any]) -> dict
     return {"rich_text": _rich_text(value)}
 
 
+def build_critical_scope_information(fields: dict[str, str]) -> str:
+    lines = ["## Critical Scope Information", ""]
+    for field in V2_SCOPE_FIELDS:
+        value = fields.get(field, "").strip()
+        if value:
+            lines.extend([f"{field}:", value, ""])
+    if len(lines) == 2:
+        return ""
+    return "\n".join(lines).strip()
+
+
+def build_notes_value(fields: dict[str, str]) -> str:
+    notes = fields.get("Notes", "").strip()
+    critical_scope = build_critical_scope_information(fields)
+    if critical_scope and notes:
+        return f"{critical_scope}\n\n{notes}"
+    return critical_scope or notes
+
+
 def build_properties(fields: dict[str, str], schema: dict[str, Any], title: str | None) -> dict[str, Any]:
     normalized = dict(fields)
     normalized["Task"] = title or fields.get("Task", "")
     normalized["Status"] = fields.get("Status") or "Ready"
+    normalized["Notes"] = build_notes_value(fields)
 
     properties: dict[str, Any] = {}
     for field in PROPERTY_FIELDS:
