@@ -64,6 +64,10 @@ DEFAULT_PROPERTY_TYPES = {
     "Do Not Touch": "rich_text",
     "From AI": "select",
     "To AI": "select",
+    "Touched Files": "rich_text",
+    "Risks": "rich_text",
+    "Commands Run": "rich_text",
+    "Notes": "rich_text",
 }
 
 
@@ -196,6 +200,7 @@ def build_critical_scope_information(fields: dict[str, str]) -> str:
     for field in V2_SCOPE_FIELDS:
         value = fields.get(field, "").strip()
         if value:
+            value = re.sub(r"^\\\-", "-", value, flags=re.MULTILINE)
             lines.extend([f"{field}:", value, ""])
     if len(lines) == 2:
         return ""
