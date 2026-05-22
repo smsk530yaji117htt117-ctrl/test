@@ -33,11 +33,54 @@ OPENAI_MODEL  = "gpt-4o"              # 汎用
 # ─── Notionプロパティ名（DBスキーマと一致させる）──────────────────────────────
 DB_ID = os.environ.get("NOTION_DATABASE_ID", "")
 
+# ─── タイムアウト設定 ─────────────────────────────────────────────────────────
+RUNNING_TIMEOUT_MINUTES = 60
+
 
 # ════════════════════════════════════════════════════════════════════════
 # 1. Notionから Pending 行を取得
 # ════════════════════════════════════════════════════════════════════════
 from notion_utils import query_database, update_page_properties, to_rich_text, get_page
+
+
+def get_running_pages() -> list[dict]:
+    """StatusがRunningの行をすべて取得する"""
+    return query_database(
+        DB_ID,
+        filter_body={"property": "Status", "select": {"equals": "Running"}},
+    )
+
+
+def handle_running_timeouts() -> None:
+    """
+    起動時に実行。RUNNING_TIMEOUT_MINUTES分以上Runningのままの行をErrorに変更する。
+    Synthesis冒頭に "ERROR: タイムアウト" と経過時間を記録する。
+    """
+    running_pages = get_running_pages()
+    if not running_pages:
+        return
+
+    now = datetime.now(timezone.utc)
+    for page in running_pages:
+        page_id = page["id"]
+        # Notion APIはlast_edited_timeをページトップレベルで返す
+        last_edited_str = page.get("last_edited_time", "")
+        if not last_edited_str:
+            continue
+
+        last_edited = datetime.fromisoformat(last_edited_str.replace("Z", "+00:00"))
+        elapsed_minutes = (now - last_edited).total_seconds() / 60
+
+        if elapsed_minutes >= RUNNING_TIMEOUT_MINUTES:
+            error_text = (
+                f"ERROR: タイムアウト\n"
+                f"（{int(elapsed_minutes)}分間Runningのまま → 自動的にErrorに変更）\n"
+            )
+            update_page_properties(page_id, {
+                "Status":    {"select": {"name": "Error"}},
+                "Synthesis": {"rich_text": to_rich_text(error_text)},
+            })
+            print(f"⏰ タイムアウト検出 → Error に変更: {page_id[:8]}... ({int(elapsed_minutes)}分経過)")
 
 
 def get_pending_questions() -> list[dict]:
@@ -306,6 +349,9 @@ async def process_one(page: dict) -> None:
 
 
 async def main() -> None:
+    # 起動時：60分以上Runningのままの行をErrorに変更する
+    handle_running_timeouts()
+
     # Pending行を取得
     pages = get_pending_questions()
 
