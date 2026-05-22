@@ -53,6 +53,27 @@ def set_status(page_id: str, status: str) -> None:
     update_page_properties(page_id, {"Status": {"select": {"name": status}}})
 
 
+def try_claim_page(page_id: str) -> bool:
+    """
+    楽観的ロック：PendingをRunningに変更し、変更を再確認する。
+    別プロセスが先に処理を始めていた場合はFalseを返す。
+
+    手順：
+    1. StatusをRunningに更新
+    2. 再取得してRunningになっているか確認
+    3. Runningでなければ別プロセスが処理中 → False を返す
+    """
+    set_status(page_id, "Running")
+    refreshed = get_page(page_id)
+    status_name = (
+        refreshed.get("properties", {})
+        .get("Status", {})
+        .get("select", {})
+        .get("name")
+    )
+    return status_name == "Running"
+
+
 def get_question_text(page: dict) -> str:
     """ページオブジェクトから質問テキストを取り出す"""
     titles = page["properties"]["Question"]["title"]
@@ -261,8 +282,10 @@ async def process_one(page: dict) -> None:
     print(f"質問: {question[:60]}...")
     print(f"{'='*60}")
 
-    # Runningに変更（処理中の表示）
-    set_status(page_id, "Running")
+    # 楽観的ロック：RunningにしてからNotion再取得で確認
+    if not try_claim_page(page_id):
+        print("⏭ 別プロセスが処理中のためスキップ")
+        return
     print("▶ Status → Running")
 
     # 3社に並列問い合わせ
