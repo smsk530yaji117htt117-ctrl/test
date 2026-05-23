@@ -198,8 +198,11 @@ def get_question_text(page: dict) -> str:
 # 2. 各AIへの問い合わせ（並列実行）
 # ════════════════════════════════════════════════════════════════════════
 
-async def ask_claude(question: str) -> str:
-    """Claudeに質問する（最大3回リトライ）"""
+async def ask_claude(question: str) -> tuple[str, bool]:
+    """
+    Claudeに質問する（最大3回リトライ）
+    Returns: (response_text, is_success)
+    """
     import anthropic
     client = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
@@ -216,10 +219,12 @@ async def ask_claude(question: str) -> str:
                 system=system,
                 messages=[{"role": "user", "content": question}],
             )
-            return resp.content[0].text
+            return resp.content[0].text, True
         except Exception as e:
             if attempt == 2:
-                return f"[APIエラー：取得できませんでした] {e}"
+                masked_error = mask_secrets(str(e))
+                error_type = classify_error(e)
+                return f"Claude unavailable: {error_type}\n{masked_error[:200]}", False
             await asyncio.sleep(2 ** attempt)  # 指数バックオフ
 
 
@@ -256,8 +261,11 @@ async def ask_gemini(question: str) -> tuple[str, bool]:
             await asyncio.sleep(2 ** attempt)
 
 
-async def ask_openai(question: str) -> str:
-    """OpenAI GPTに質問する（最大3回リトライ）"""
+async def ask_openai(question: str) -> tuple[str, bool]:
+    """
+    OpenAI GPTに質問する（最大3回リトライ）
+    Returns: (response_text, is_success)
+    """
     from openai import AsyncOpenAI
     client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
@@ -268,22 +276,34 @@ async def ask_openai(question: str) -> str:
                 messages=[{"role": "user", "content": question}],
                 max_tokens=2048,
             )
-            return resp.choices[0].message.content or ""
+            return (resp.choices[0].message.content or ""), True
         except Exception as e:
             if attempt == 2:
-                return f"[APIエラー：取得できませんでした] {e}"
+                masked_error = mask_secrets(str(e))
+                error_type = classify_error(e)
+                return f"OpenAI unavailable: {error_type}\n{masked_error[:200]}", False
             await asyncio.sleep(2 ** attempt)
 
 
-async def ask_all_ai(question: str) -> tuple[str, str, str, bool]:
-    """3社に並列で問い合わせて（Claude回答, Gemini回答, GPT回答, Gemini成功フラグ）を返す"""
-    claude_resp, gemini_result, gpt_resp = await asyncio.gather(
+async def ask_all_ai(question: str) -> dict:
+    """
+    3社に並列で問い合わせて各社の回答と成否フラグを返す。
+    Returns: {
+        "claude": {"text": str, "ok": bool},
+        "gemini": {"text": str, "ok": bool},
+        "openai": {"text": str, "ok": bool},
+    }
+    """
+    claude_result, gemini_result, openai_result = await asyncio.gather(
         ask_claude(question),
         ask_gemini(question),
         ask_openai(question),
     )
-    gemini_resp, gemini_ok = gemini_result
-    return claude_resp, gemini_resp, gpt_resp, gemini_ok
+    return {
+        "claude": {"text": claude_result[0], "ok": claude_result[1]},
+        "gemini": {"text": gemini_result[0], "ok": gemini_result[1]},
+        "openai": {"text": openai_result[0], "ok": openai_result[1]},
+    }
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -291,47 +311,60 @@ async def ask_all_ai(question: str) -> tuple[str, str, str, bool]:
 # ════════════════════════════════════════════════════════════════════════
 
 async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str,
-                     *, gemini_success: bool = True) -> tuple[str, str]:
+                     *, claude_success: bool = True,
+                     gemini_success: bool = True,
+                     openai_success: bool = True) -> tuple[str, str]:
     """
-    3社の回答をもとにClaudeが統合分析を生成する
-    gemini_success=False の場合、2社合議モードで統合分析を生成する
+    各社の回答をもとに統合分析を生成する。
+    失敗したAIがある場合、利用可能なAIのみで2社合議モードで統合分析を生成する。
+    Claude失敗時はOpenAI APIでSynthesis生成を行う（フォールバック）。
     Returns: (統合分析テキスト, タグ文字列)
     """
-    import anthropic
-    client = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-    # Gemini利用不可の判定（APIエラー or APIキー未設定）
+    # 失敗AIの特定
+    failed_ais = []
+    if not claude_success:
+        failed_ais.append("Claude")
     if not gemini_success:
-        mode = "2社合議（Gemini unavailable）"
-        gemini_section = f"（利用不可: {gemini_r[:100]}）"
-        gemini_note = (
-            "\n注意：今回はGemini APIが利用できませんでした。"
-            "Claude + OpenAIの2社合議として統合分析を生成してください。\n"
-            "\nSynthesis冒頭に以下のセクションを含めてください：\n"
-            "## Gemini unavailable\n"
-            "今回はGemini APIが503等で利用できなかったため、"
-            "Claude + OpenAIの2社合議として統合分析を行います。\n"
+        failed_ais.append("Gemini")
+    if not openai_success:
+        failed_ais.append("OpenAI")
+
+    # 各社の回答セクションを組み立て（失敗AIは利用不可と表示）
+    claude_section = claude_r if claude_success else f"（利用不可: {claude_r[:100]}）"
+    gemini_section = gemini_r if gemini_success else f"（利用不可: {gemini_r[:100]}）"
+    openai_section = gpt_r if openai_success else f"（利用不可: {gpt_r[:100]}）"
+
+    if failed_ais:
+        failed_names = "/".join(failed_ais)
+        available_count = 3 - len(failed_ais)
+        parties = f"{available_count}社"
+        mode = f"{parties}合議（{failed_names} unavailable）"
+        unavailable_note = (
+            f"\n注意：今回は{failed_names}が利用できませんでした。"
+            f"利用可能なAIの{parties}合議として統合分析を生成してください。\n"
+            f"\nSynthesis冒頭に以下のセクションを含めてください：\n"
+            f"## {failed_names} unavailable\n"
+            f"今回は{failed_names}が利用できなかったため、"
+            f"残りのAIの{parties}合議として統合分析を行います。\n"
         )
-        parties = "2社"
     else:
-        mode = "3社合議"
-        gemini_section = gemini_r
-        gemini_note = ""
         parties = "3社"
+        mode = "3社合議"
+        unavailable_note = ""
 
     prompt = f"""以下は同じ質問に対する複数のAIの回答です（{mode}モード）。
-{gemini_note}
+{unavailable_note}
 【質問】
 {question}
 
 【Claudeの回答】
-{claude_r}
+{claude_section}
 
 【Geminiの回答】
 {gemini_section}
 
 【OpenAIの回答】
-{gpt_r}
+{openai_section}
 
 以下の形式で統合分析を作成してください：
 
@@ -350,12 +383,26 @@ async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str,
 - [推測]：概ね一致しているが、不確定要素がある
 - [未確認]：見解が割れており、追加検証が必要"""
 
-    resp = await client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=3000,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    synthesis_text = resp.content[0].text
+    # Synthesis生成：通常はClaude、Claude失敗時はOpenAIにフォールバック
+    if claude_success:
+        import anthropic
+        client = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        resp = await client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=3000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        synthesis_text = resp.content[0].text
+    else:
+        # Claude失敗時：OpenAIでSynthesis生成
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        resp = await client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=3000,
+        )
+        synthesis_text = resp.choices[0].message.content or ""
 
     # タグを抽出する
     tag = "未確認"
@@ -427,41 +474,60 @@ async def process_one(page: dict) -> None:
 
     # 3社に並列問い合わせ
     print("▶ 3社に並列問い合わせ中...")
-    claude_r, gemini_r, gpt_r, gemini_ok = await ask_all_ai(question)
+    results = await ask_all_ai(question)
+    claude_r = results["claude"]["text"]
+    claude_ok = results["claude"]["ok"]
+    gemini_r = results["gemini"]["text"]
+    gemini_ok = results["gemini"]["ok"]
+    gpt_r = results["openai"]["text"]
+    openai_ok = results["openai"]["ok"]
     print("  Claude  :", claude_r[:60].replace("\n", " "), "...")
     print("  Gemini  :", gemini_r[:60].replace("\n", " "), "...")
     print("  OpenAI  :", gpt_r[:60].replace("\n", " "), "...")
 
-    # Gemini失敗時のログ出力
+    # 失敗AIのログ出力
+    failed_ais = []
+    if not claude_ok:
+        failed_ais.append("Claude")
     if not gemini_ok:
-        print(f"⚠️ Gemini unavailable: {gemini_r.split(chr(10))[0]}")
-        print("   2社合議モードで継続します（Claude + OpenAI）")
+        failed_ais.append("Gemini")
+    if not openai_ok:
+        failed_ais.append("OpenAI")
 
-    # Claude/OpenAIもエラーの場合はErrorにする
-    claude_failed = claude_r.startswith("[APIエラー")
-    openai_failed = gpt_r.startswith("[APIエラー")
-    success_count = sum([not claude_failed, gemini_ok, not openai_failed])
+    if failed_ais:
+        failed_names = "/".join(failed_ais)
+        print(f"⚠️ {failed_names} unavailable")
+        print("   2社合議モードで継続します")
+
+    # 2社以上失敗ならMULTI_API_FAILUREエラー
+    success_count = sum([claude_ok, gemini_ok, openai_ok])
     if success_count < 2:
         error_detail = (
-            f"成功: {success_count}社 / Claude: {'OK' if not claude_failed else 'NG'}"
+            f"成功: {success_count}社 / Claude: {'OK' if claude_ok else 'NG'}"
             f" / Gemini: {'OK' if gemini_ok else 'NG'}"
-            f" / OpenAI: {'OK' if not openai_failed else 'NG'}"
+            f" / OpenAI: {'OK' if openai_ok else 'NG'}"
         )
         record_error(page_id, "MULTI_API_FAILURE", error_detail)
         print(f"❌ 2社以上失敗のためErrorに変更: {error_detail}")
         return
 
-    # 統合分析を生成（Gemini失敗フラグを渡す）
+    # 統合分析を生成（各社の成否フラグを渡す）
     print("▶ 統合分析を生成中...")
     synthesis, tag = await synthesize(
-        question, claude_r, gemini_r, gpt_r, gemini_success=gemini_ok
+        question, claude_r, gemini_r, gpt_r,
+        claude_success=claude_ok,
+        gemini_success=gemini_ok,
+        openai_success=openai_ok,
     )
     print(f"  タグ判定: [{tag}]")
 
-    # Notionに書き戻し（Gemini失敗時でもStatusはComplete）
+    # Notionに書き戻し（1社失敗時でもStatusはComplete）
     try:
         write_back_to_notion(page_id, claude_r, gemini_r, gpt_r, synthesis, tag)
-        mode_label = "3社合議" if gemini_ok else "2社合議（Gemini unavailable）"
+        if failed_ais:
+            mode_label = f"2社合議（{'/'.join(failed_ais)} unavailable）"
+        else:
+            mode_label = "3社合議"
         print(f"▶ Notionに書き戻し完了 → Status: Complete（{mode_label}）")
     except Exception as e:
         record_error(page_id, "NOTION_WRITE_ERROR", str(e))
