@@ -26,6 +26,8 @@
 
 `human_review_required` は `classification` を上書きする分類ではなく、作業開始を止める安全ゲートである。
 
+詳細な `human_review_required` 運用は `docs/HUMAN_REVIEW_REQUIRED_POLICY.md` を参照する。
+
 次の場合、具体的な開発タスクが存在するなら `classification = dev_task`、かつ `human_review_required = true` とする。
 
 - 実装候補に Notion スキーマ変更、DB フィールド追加、`attempt_count`、`fallback_triggered` が関係する。
