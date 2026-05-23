@@ -457,9 +457,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--write-handoff",
         action="store_true",
-        help="Write Handoff v2 Markdown locally. This does not call the relay or write to Notion.",
+        help="Write Handoff v2 Markdown to --output. This does not call the relay or write to Notion.",
     )
-    parser.add_argument("--output", type=Path, help="Output path for generated Handoff v2 Markdown.")
+    parser.add_argument("--output", type=Path, help="Output path for generated Handoff v2 Markdown; required with --write-handoff.")
     parser.add_argument("--task-title", help="Override the generated Handoff Task value.")
     return parser.parse_args(argv)
 
@@ -471,6 +471,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.output and not (args.write_handoff or args.dry_run):
         print("ERROR: --output requires --write-handoff or --dry-run.", file=sys.stderr)
+        return 2
+    if args.write_handoff and not args.output:
+        print("ERROR: --write-handoff requires --output to avoid creating files in the working directory.", file=sys.stderr)
         return 2
     if not os.environ.get("NOTION_TOKEN"):
         print("ERROR: NOTION_TOKEN is not set.", file=sys.stderr)
@@ -500,9 +503,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     markdown = build_handoff_markdown(record, result, args.task_title)
-    should_write = args.write_handoff or args.output is not None
+    should_write = args.output is not None
     if should_write:
-        output = args.output or Path(f"handoff_{record.page_id.replace('-', '')}.md")
+        output = args.output
         output.write_text(markdown, encoding="utf-8")
         print(f"Wrote Handoff v2 Markdown: {output}")
     if args.dry_run or not should_write:
