@@ -223,11 +223,14 @@ async def ask_claude(question: str) -> str:
             await asyncio.sleep(2 ** attempt)  # 指数バックオフ
 
 
-async def ask_gemini(question: str) -> str:
-    """Geminiに質問する（APIキーがない場合はスキップ）"""
+async def ask_gemini(question: str) -> tuple[str, bool]:
+    """
+    Geminiに質問する（APIキーがない場合はスキップ）
+    Returns: (response_text, is_success)
+    """
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
-        return "[スキップ：Gemini APIキー未設定]"
+        return "[スキップ：Gemini APIキー未設定]", False
 
     from google import genai
     from google.genai import types
@@ -244,10 +247,12 @@ async def ask_gemini(question: str) -> str:
                     config=types.GenerateContentConfig(max_output_tokens=2048),
                 ),
             )
-            return resp.text
+            return resp.text, True
         except Exception as e:
             if attempt == 2:
-                return f"[APIエラー：取得できませんでした] {e}"
+                masked_error = mask_secrets(str(e))
+                error_type = classify_error(e)
+                return f"Gemini unavailable: {error_type}\n{masked_error[:200]}", False
             await asyncio.sleep(2 ** attempt)
 
 
@@ -270,34 +275,52 @@ async def ask_openai(question: str) -> str:
             await asyncio.sleep(2 ** attempt)
 
 
-async def ask_all_ai(question: str) -> tuple[str, str, str]:
-    """3社に並列で問い合わせて（Claude回答, Gemini回答, GPT回答）を返す"""
-    claude_resp, gemini_resp, gpt_resp = await asyncio.gather(
+async def ask_all_ai(question: str) -> tuple[str, str, str, bool]:
+    """3社に並列で問い合わせて（Claude回答, Gemini回答, GPT回答, Gemini成功フラグ）を返す"""
+    claude_resp, gemini_result, gpt_resp = await asyncio.gather(
         ask_claude(question),
         ask_gemini(question),
         ask_openai(question),
     )
-    return claude_resp, gemini_resp, gpt_resp
+    gemini_resp, gemini_ok = gemini_result
+    return claude_resp, gemini_resp, gpt_resp, gemini_ok
 
 
 # ════════════════════════════════════════════════════════════════════════
 # 3. 統合分析の生成
 # ════════════════════════════════════════════════════════════════════════
 
-async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str) -> tuple[str, str]:
+async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str,
+                     *, gemini_success: bool = True) -> tuple[str, str]:
     """
     3社の回答をもとにClaudeが統合分析を生成する
+    gemini_success=False の場合、2社合議モードで統合分析を生成する
     Returns: (統合分析テキスト, タグ文字列)
     """
     import anthropic
     client = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-    # Geminiがスキップの場合は2社合議と明示する
-    gemini_section = gemini_r if not gemini_r.startswith("[スキップ") else "（APIキー未設定のためスキップ）"
-    mode = "2社合議" if gemini_r.startswith("[スキップ") else "3社合議"
+    # Gemini利用不可の判定（APIエラー or APIキー未設定）
+    if not gemini_success:
+        mode = "2社合議（Gemini unavailable）"
+        gemini_section = f"（利用不可: {gemini_r[:100]}）"
+        gemini_note = (
+            "\n注意：今回はGemini APIが利用できませんでした。"
+            "Claude + OpenAIの2社合議として統合分析を生成してください。\n"
+            "\nSynthesis冒頭に以下のセクションを含めてください：\n"
+            "## Gemini unavailable\n"
+            "今回はGemini APIが503等で利用できなかったため、"
+            "Claude + OpenAIの2社合議として統合分析を行います。\n"
+        )
+        parties = "2社"
+    else:
+        mode = "3社合議"
+        gemini_section = gemini_r
+        gemini_note = ""
+        parties = "3社"
 
     prompt = f"""以下は同じ質問に対する複数のAIの回答です（{mode}モード）。
-
+{gemini_note}
 【質問】
 {question}
 
@@ -312,8 +335,8 @@ async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str) ->
 
 以下の形式で統合分析を作成してください：
 
-## 3社の共通見解
-（3社が一致している点を箇条書きで）
+## {parties}の共通見解
+（{parties}が一致している点を箇条書きで）
 
 ## 見解の相違点
 （各社で異なる視点や評価を整理）
@@ -323,7 +346,7 @@ async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str) ->
 
 ## タグ判定
 以下から最も適切なものを1つ選んでください：
-- [確定]：3社の見解が一致しており、信頼度が高い
+- [確定]：{parties}の見解が一致しており、信頼度が高い
 - [推測]：概ね一致しているが、不確定要素がある
 - [未確認]：見解が割れており、追加検証が必要"""
 
@@ -404,20 +427,42 @@ async def process_one(page: dict) -> None:
 
     # 3社に並列問い合わせ
     print("▶ 3社に並列問い合わせ中...")
-    claude_r, gemini_r, gpt_r = await ask_all_ai(question)
+    claude_r, gemini_r, gpt_r, gemini_ok = await ask_all_ai(question)
     print("  Claude  :", claude_r[:60].replace("\n", " "), "...")
     print("  Gemini  :", gemini_r[:60].replace("\n", " "), "...")
     print("  OpenAI  :", gpt_r[:60].replace("\n", " "), "...")
 
-    # 統合分析を生成
+    # Gemini失敗時のログ出力
+    if not gemini_ok:
+        print(f"⚠️ Gemini unavailable: {gemini_r.split(chr(10))[0]}")
+        print("   2社合議モードで継続します（Claude + OpenAI）")
+
+    # Claude/OpenAIもエラーの場合はErrorにする
+    claude_failed = claude_r.startswith("[APIエラー")
+    openai_failed = gpt_r.startswith("[APIエラー")
+    success_count = sum([not claude_failed, gemini_ok, not openai_failed])
+    if success_count < 2:
+        error_detail = (
+            f"成功: {success_count}社 / Claude: {'OK' if not claude_failed else 'NG'}"
+            f" / Gemini: {'OK' if gemini_ok else 'NG'}"
+            f" / OpenAI: {'OK' if not openai_failed else 'NG'}"
+        )
+        record_error(page_id, "MULTI_API_FAILURE", error_detail)
+        print(f"❌ 2社以上失敗のためErrorに変更: {error_detail}")
+        return
+
+    # 統合分析を生成（Gemini失敗フラグを渡す）
     print("▶ 統合分析を生成中...")
-    synthesis, tag = await synthesize(question, claude_r, gemini_r, gpt_r)
+    synthesis, tag = await synthesize(
+        question, claude_r, gemini_r, gpt_r, gemini_success=gemini_ok
+    )
     print(f"  タグ判定: [{tag}]")
 
-    # Notionに書き戻し
+    # Notionに書き戻し（Gemini失敗時でもStatusはComplete）
     try:
         write_back_to_notion(page_id, claude_r, gemini_r, gpt_r, synthesis, tag)
-        print("▶ Notionに書き戻し完了 → Status: Complete")
+        mode_label = "3社合議" if gemini_ok else "2社合議（Gemini unavailable）"
+        print(f"▶ Notionに書き戻し完了 → Status: Complete（{mode_label}）")
     except Exception as e:
         record_error(page_id, "NOTION_WRITE_ERROR", str(e))
         raise
