@@ -79,6 +79,11 @@ def _notion_id(value: str) -> str:
     return value.strip().replace("-", "")
 
 
+def _unescape_markdown(text: str) -> str:
+    """Remove Markdown backslash escapes to recover plain text."""
+    return re.sub(r"\\([\\`*_{}\[\]()#+\-.!>|~])", r"\1", text)
+
+
 def _split_text(text: str, limit: int = TEXT_LIMIT) -> list[str]:
     if not text:
         return [""]
@@ -131,7 +136,7 @@ def parse_labeled_markdown(text: str) -> dict[str, str]:
         if current:
             fields[current].append(line)
 
-    return {key: "\n".join(value).strip() for key, value in fields.items()}
+    return {key: _unescape_markdown("\n".join(value).strip()) for key, value in fields.items()}
 
 
 def validate_fields(fields: dict[str, str], title: str | None) -> None:
@@ -200,7 +205,6 @@ def build_critical_scope_information(fields: dict[str, str]) -> str:
     for field in V2_SCOPE_FIELDS:
         value = fields.get(field, "").strip()
         if value:
-            value = re.sub(r"^\\\-", "-", value, flags=re.MULTILINE)
             lines.extend([f"{field}:", value, ""])
     if len(lines) == 2:
         return ""
