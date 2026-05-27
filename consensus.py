@@ -46,6 +46,52 @@ DB_ID = os.environ.get("NOTION_DATABASE_ID", "")
 # ─── タイムアウト設定 ─────────────────────────────────────────────────────────
 RUNNING_TIMEOUT_MINUTES = 60
 
+# ─── 統合分析プロンプトテンプレート（8セクション出力形式）──────────────────────
+SYNTHESIS_PROMPT_TEMPLATE = """\
+以下は同じ質問に対する複数のAIの回答です（{mode}モード）。{unavailable_note}
+【質問】
+{question}
+
+【Claudeの回答】
+{claude_section}
+
+【Geminiの回答】
+{gemini_section}
+
+【OpenAIの回答】
+{openai_section}
+
+以下の8セクション形式で統合分析を作成してください：
+
+### 結論
+1〜2行で要点をまとめてください
+
+### 根拠
+判断の根拠（各社の主張で一致した点、根拠データ）
+
+### リスク
+潜在的な落とし穴・反対意見
+
+### 推奨アクション
+具体的な次の一歩
+
+### タイプ判定
+質問の種類: dev_task / doc_task / research / discussion のいずれか
+
+### 推奨成果物
+タイプ判定に応じた成果物:
+- dev_task: PR
+- doc_task: Notion ページ
+- research: 調査メモ
+- discussion: 議論まとめ
+
+### Human Review Required
+true / false
+
+### Next Route
+次に何をすべきか（例: Handoff 起票、人間レビュー、追加調査）\
+"""
+
 
 # ════════════════════════════════════════════════════════════════════════
 # 0. エラー記録ユーティリティ
@@ -352,36 +398,14 @@ async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str,
         mode = "3社合議"
         unavailable_note = ""
 
-    prompt = f"""以下は同じ質問に対する複数のAIの回答です（{mode}モード）。
-{unavailable_note}
-【質問】
-{question}
-
-【Claudeの回答】
-{claude_section}
-
-【Geminiの回答】
-{gemini_section}
-
-【OpenAIの回答】
-{openai_section}
-
-以下の形式で統合分析を作成してください：
-
-## {parties}の共通見解
-（{parties}が一致している点を箇条書きで）
-
-## 見解の相違点
-（各社で異なる視点や評価を整理）
-
-## 統合的な結論
-（矢嶋さんへの最終的な判断材料）
-
-## タグ判定
-以下から最も適切なものを1つ選んでください：
-- [確定]：{parties}の見解が一致しており、信頼度が高い
-- [推測]：概ね一致しているが、不確定要素がある
-- [未確認]：見解が割れており、追加検証が必要"""
+    prompt = SYNTHESIS_PROMPT_TEMPLATE.format(
+        mode=mode,
+        unavailable_note=unavailable_note,
+        question=question,
+        claude_section=claude_section,
+        gemini_section=gemini_section,
+        openai_section=openai_section,
+    )
 
     # Synthesis生成：通常はClaude、Claude失敗時はOpenAIにフォールバック
     if claude_success:
