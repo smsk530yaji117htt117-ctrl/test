@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>減量ログ</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --ink: #1f2933;
+    --muted: #6b7280;
+    --line: #e2e6ea;
+    --accent: #2563eb;
+    --accent-weak: #dbeafe;
+    --danger: #dc2626;
+    --target: #ef8b00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+  .card h2 { font-size: 1rem; margin: 0 0 14px; }
+  form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.8rem; color: var(--muted); }
+  input[type="date"], input[type="number"] {
+    font: inherit;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input[type="number"] { width: 130px; }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    background: var(--accent);
+    color: #fff;
+  }
+  button:hover { background: #1d4ed8; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .msg { font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
+  .msg.err { color: var(--danger); }
+  .msg.ok { color: #047857; }
+
+  canvas { width: 100%; height: auto; display: block; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 0; font-size: 0.9rem; }
+
+  .stats { display: flex; gap: 18px; flex-wrap: wrap; margin: 0 0 14px; }
+  .stat { background: var(--accent-weak); border-radius: 8px; padding: 8px 12px; }
+  .stat b { display: block; font-size: 1.1rem; }
+  .stat span { font-size: 0.75rem; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); font-size: 0.92rem; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.78rem; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .delta-down { color: #047857; }
+  .delta-up { color: var(--danger); }
+  .del {
+    background: none; color: var(--muted); padding: 4px 8px; font-size: 0.8rem;
+    border: 1px solid var(--line); border-radius: 6px;
+  }
+  .del:hover { background: #fee2e2; color: var(--danger); border-color: #fecaca; }
+  .legend { display: flex; gap: 16px; font-size: 0.78rem; color: var(--muted); margin-top: 10px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 5px; }
+  .legend i.line { border-top: 3px solid var(--accent); }
+  .legend i.target { border-top: 3px dashed var(--target); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>減量ログ</h1>
+  <p class="sub">体重を記録して推移を見る。データはこのブラウザ内（localStorage）にのみ保存され、外部送信されません。</p>
+
+  <div class="card">
+    <h2>記録する</h2>
+    <form id="entry-form">
+      <div class="field">
+        <label for="date">日付</label>
+        <input type="date" id="date" required>
+      </div>
+      <div class="field">
+        <label for="weight">体重 (kg)</label>
+        <input type="number" id="weight" step="0.1" min="1" max="500" placeholder="例: 72.5" required>
+      </div>
+      <button type="submit">記録する</button>
+    </form>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>推移グラフ</h2>
+    <div id="chart-area">
+      <canvas id="chart" aria-label="体重推移グラフ"></canvas>
+      <div class="legend">
+        <span><i class="line"></i>体重</span>
+        <span><i class="target"></i>目標 70kg</span>
+      </div>
+    </div>
+    <div class="empty" id="chart-empty" hidden>まだ記録がありません。上のフォームから追加してください。</div>
+  </div>
+
+  <div class="card">
+    <h2>記録一覧</h2>
+    <div class="stats" id="stats" hidden></div>
+    <table id="history-table" hidden>
+      <thead>
+        <tr>
+          <th>日付</th>
+          <th class="num">体重 (kg)</th>
+          <th class="num">前回比</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="history-body"></tbody>
+    </table>
+    <div class="empty" id="history-empty">まだ記録がありません。</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "weight-log-entries-v1";
+  var TARGET_WEIGHT = 70;
+
+  var form = document.getElementById("entry-form");
+  var dateInput = document.getElementById("date");
+  var weightInput = document.getElementById("weight");
+  var msg = document.getElementById("msg");
+  var canvas = document.getElementById("chart");
+  var chartEmpty = document.getElementById("chart-empty");
+  var chartArea = document.getElementById("chart-area");
+  var historyTable = document.getElementById("history-table");
+  var historyBody = document.getElementById("history-body");
+  var historyEmpty = document.getElementById("history-empty");
+  var statsEl = document.getElementById("stats");
+
+  // ---- storage ----
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      var data = JSON.parse(raw);
+      if (!Array.isArray(data)) return [];
+      return data.filter(function (e) {
+        return e && typeof e.date === "string" && typeof e.weight === "number" && isFinite(e.weight);
+      });
+    } catch (e) {
+      return [];
+    }
+  }
+  function save(entries) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    } catch (e) {
+      showMsg("保存に失敗しました（localStorage が利用できない可能性があります）。", "err");
+    }
+  }
+
+  // entries are kept sorted ascending by date
+  function sortedAsc(entries) {
+    return entries.slice().sort(function (a, b) {
+      return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+    });
+  }
+
+  function upsert(entries, date, weight) {
+    var found = false;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].date === date) {
+        entries[i].weight = weight;
+        found = true;
+        break;
+      }
+    }
+    if (!found) entries.push({ date: date, weight: weight });
+    return { entries: entries, updated: found };
+  }
+
+  function showMsg(text, kind) {
+    msg.textContent = text || "";
+    msg.className = "msg" + (kind ? " " + kind : "");
+  }
+
+  function fmtNum(n) {
+    return (Math.round(n * 10) / 10).toFixed(1);
+  }
+
+  // ---- rendering ----
+  function render() {
+    var entries = sortedAsc(load());
+    renderHistory(entries);
+    renderStats(entries);
+    drawChart(entries);
+  }
+
+  function renderStats(entries) {
+    if (entries.length === 0) { statsEl.hidden = true; return; }
+    var latest = entries[entries.length - 1];
+    var first = entries[0];
+    var change = latest.weight - first.weight;
+    var toTarget = latest.weight - TARGET_WEIGHT;
+    statsEl.hidden = false;
+    statsEl.innerHTML = "";
+    addStat("最新", fmtNum(latest.weight) + " kg");
+    addStat("開始からの増減", (change > 0 ? "+" : "") + fmtNum(change) + " kg");
+    addStat("目標(70kg)まで", toTarget > 0 ? "あと " + fmtNum(toTarget) + " kg" : "達成 (" + fmtNum(toTarget) + " kg)");
+  }
+  function addStat(label, value) {
+    var d = document.createElement("div");
+    d.className = "stat";
+    var b = document.createElement("b");
+    b.textContent = value;
+    var s = document.createElement("span");
+    s.textContent = label;
+    d.appendChild(b);
+    d.appendChild(s);
+    statsEl.appendChild(d);
+  }
+
+  function renderHistory(entriesAsc) {
+    historyBody.innerHTML = "";
+    if (entriesAsc.length === 0) {
+      historyTable.hidden = true;
+      historyEmpty.hidden = false;
+      return;
+    }
+    historyTable.hidden = false;
+    historyEmpty.hidden = true;
+
+    // show newest first; compute delta vs the chronologically previous day
+    for (var i = entriesAsc.length - 1; i >= 0; i--) {
+      var e = entriesAsc[i];
+      var tr = document.createElement("tr");
+
+      var tdDate = document.createElement("td");
+      tdDate.textContent = e.date;
+      tr.appendChild(tdDate);
+
+      var tdW = document.createElement("td");
+      tdW.className = "num";
+      tdW.textContent = fmtNum(e.weight);
+      tr.appendChild(tdW);
+
+      var tdDelta = document.createElement("td");
+      tdDelta.className = "num";
+      if (i > 0) {
+        var d = e.weight - entriesAsc[i - 1].weight;
+        var sign = d > 0 ? "+" : "";
+        tdDelta.textContent = sign + fmtNum(d);
+        tdDelta.className += d < 0 ? " delta-down" : d > 0 ? " delta-up" : "";
+      } else {
+        tdDelta.textContent = "—";
+      }
+      tr.appendChild(tdDelta);
+
+      var tdDel = document.createElement("td");
+      tdDel.className = "num";
+      var btn = document.createElement("button");
+      btn.className = "del";
+      btn.type = "button";
+      btn.textContent = "削除";
+      btn.setAttribute("data-date", e.date);
+      tdDel.appendChild(btn);
+      tr.appendChild(tdDel);
+
+      historyBody.appendChild(tr);
+    }
+  }
+
+  historyBody.addEventListener("click", function (ev) {
+    var t = ev.target;
+    if (t && t.classList.contains("del")) {
+      var date = t.getAttribute("data-date");
+      if (date && confirm(date + " の記録を削除しますか？")) {
+        var entries = load().filter(function (e) { return e.date !== date; });
+        save(entries);
+        showMsg("削除しました: " + date, "ok");
+        render();
+      }
+    }
+  });
+
+  // ---- chart (vanilla canvas, no external deps) ----
+  function drawChart(entriesAsc) {
+    var ctx = canvas.getContext("2d");
+
+    if (entriesAsc.length === 0) {
+      chartArea.querySelector(".legend").style.display = "none";
+      canvas.style.display = "none";
+      chartEmpty.hidden = false;
+      return;
+    }
+    chartArea.querySelector(".legend").style.display = "";
+    canvas.style.display = "block";
+    chartEmpty.hidden = true;
+
+    // crisp rendering on hi-dpi
+    var cssWidth = canvas.clientWidth || 700;
+    var cssHeight = 300;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cssWidth * dpr);
+    canvas.height = Math.round(cssHeight * dpr);
+    canvas.style.height = cssHeight + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    var padL = 46, padR = 16, padT = 16, padB = 34;
+    var plotW = cssWidth - padL - padR;
+    var plotH = cssHeight - padT - padB;
+
+    // y range includes data + target line, with padding
+    var weights = entriesAsc.map(function (e) { return e.weight; });
+    var minW = Math.min.apply(null, weights);
+    var maxW = Math.max.apply(null, weights);
+    minW = Math.min(minW, TARGET_WEIGHT);
+    maxW = Math.max(maxW, TARGET_WEIGHT);
+    if (minW === maxW) { minW -= 1; maxW += 1; }
+    var range = maxW - minW;
+    var yMin = minW - range * 0.12;
+    var yMax = maxW + range * 0.12;
+
+    var n = entriesAsc.length;
+    function xAt(i) {
+      return n === 1 ? padL + plotW / 2 : padL + (plotW * i) / (n - 1);
+    }
+    function yAt(w) {
+      return padT + plotH * (1 - (w - yMin) / (yMax - yMin));
+    }
+
+    // y gridlines + labels
+    ctx.font = "11px sans-serif";
+    ctx.textBaseline = "middle";
+    var ticks = 4;
+    for (var t = 0; t <= ticks; t++) {
+      var val = yMin + ((yMax - yMin) * t) / ticks;
+      var y = yAt(val);
+      ctx.strokeStyle = "#eef1f4";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + plotW, y);
+      ctx.stroke();
+      ctx.fillStyle = "#9aa3ad";
+      ctx.textAlign = "right";
+      ctx.fillText(fmtNum(val), padL - 8, y);
+    }
+
+    // target line (70kg)
+    var ty = yAt(TARGET_WEIGHT);
+    ctx.save();
+    ctx.strokeStyle = "#ef8b00";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padL, ty);
+    ctx.lineTo(padL + plotW, ty);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = "#ef8b00";
+    ctx.textAlign = "left";
+    ctx.fillText("目標 " + TARGET_WEIGHT + "kg", padL + 4, ty - 8 < padT ? ty + 10 : ty - 8);
+
+    // x labels (subset to avoid crowding)
+    ctx.fillStyle = "#9aa3ad";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    var maxLabels = Math.max(2, Math.floor(plotW / 70));
+    var step = Math.max(1, Math.ceil(n / maxLabels));
+    for (var i = 0; i < n; i++) {
+      if (i % step === 0 || i === n - 1) {
+        var label = shortDate(entriesAsc[i].date);
+        ctx.fillText(label, xAt(i), padT + plotH + 8);
+      }
+    }
+
+    // data line
+    ctx.strokeStyle = "#2563eb";
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (var j = 0; j < n; j++) {
+      var px = xAt(j), py = yAt(entriesAsc[j].weight);
+      if (j === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // data points
+    ctx.fillStyle = "#2563eb";
+    for (var k = 0; k < n; k++) {
+      ctx.beginPath();
+      ctx.arc(xAt(k), yAt(entriesAsc[k].weight), n > 40 ? 2 : 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function shortDate(iso) {
+    // iso = YYYY-MM-DD -> M/D
+    var parts = iso.split("-");
+    if (parts.length === 3) return parseInt(parts[1], 10) + "/" + parseInt(parts[2], 10);
+    return iso;
+  }
+
+  function todayISO() {
+    var d = new Date();
+    var off = d.getTimezoneOffset();
+    var local = new Date(d.getTime() - off * 60000);
+    return local.toISOString().slice(0, 10);
+  }
+
+  // ---- form ----
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var date = dateInput.value;
+    var weight = parseFloat(weightInput.value);
+    if (!date) { showMsg("日付を入力してください。", "err"); return; }
+    if (!isFinite(weight) || weight <= 0) { showMsg("正しい体重(kg)を入力してください。", "err"); return; }
+
+    var entries = load();
+    var result = upsert(entries, date, Math.round(weight * 10) / 10);
+    save(result.entries);
+    showMsg((result.updated ? "更新しました: " : "記録しました: ") + date + " / " + fmtNum(weight) + " kg", "ok");
+    weightInput.value = "";
+    render();
+  });
+
+  // init
+  dateInput.value = todayISO();
+  window.addEventListener("resize", function () { drawChart(sortedAsc(load())); });
+  render();
+})();
+</script>
+</body>
+</html>
