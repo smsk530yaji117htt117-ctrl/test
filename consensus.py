@@ -359,12 +359,12 @@ async def ask_all_ai(question: str) -> dict:
 async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str,
                      *, claude_success: bool = True,
                      gemini_success: bool = True,
-                     openai_success: bool = True) -> tuple[str, str]:
+                     openai_success: bool = True) -> str:
     """
     各社の回答をもとに統合分析を生成する。
     失敗したAIがある場合、利用可能なAIのみで2社合議モードで統合分析を生成する。
     Claude失敗時はOpenAI APIでSynthesis生成を行う（フォールバック）。
-    Returns: (統合分析テキスト, タグ文字列)
+    Returns: 統合分析テキスト
     """
     # 失敗AIの特定
     failed_ais = []
@@ -428,14 +428,7 @@ async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str,
         )
         synthesis_text = resp.choices[0].message.content or ""
 
-    # タグを抽出する
-    tag = "未確認"
-    if "[確定]" in synthesis_text:
-        tag = "確定"
-    elif "[推測]" in synthesis_text:
-        tag = "推測"
-
-    return synthesis_text, tag
+    return synthesis_text
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -444,7 +437,7 @@ async def synthesize(question: str, claude_r: str, gemini_r: str, gpt_r: str,
 
 def write_back_to_notion(page_id: str,
                           claude_r: str, gemini_r: str, gpt_r: str,
-                          synthesis: str, tag: str) -> None:
+                          synthesis: str) -> None:
     """3社の回答・統合分析・ステータスをNotionページに書き戻す"""
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -455,7 +448,6 @@ def write_back_to_notion(page_id: str,
         "Gemini_Response": {"rich_text": to_rich_text(gemini_r)},
         "GPT_Response":    {"rich_text": to_rich_text(gpt_r)},
         "Synthesis":       {"rich_text": to_rich_text(synthesis)},
-        "Tags":            {"multi_select": [{"name": tag}]},
         "Completed":       {"date": {"start": now_iso}},
     }
 
@@ -537,17 +529,16 @@ async def process_one(page: dict) -> None:
 
     # 統合分析を生成（各社の成否フラグを渡す）
     print("▶ 統合分析を生成中...")
-    synthesis, tag = await synthesize(
+    synthesis = await synthesize(
         question, claude_r, gemini_r, gpt_r,
         claude_success=claude_ok,
         gemini_success=gemini_ok,
         openai_success=openai_ok,
     )
-    print(f"  タグ判定: [{tag}]")
 
     # Notionに書き戻し（1社失敗時でもStatusはComplete）
     try:
-        write_back_to_notion(page_id, claude_r, gemini_r, gpt_r, synthesis, tag)
+        write_back_to_notion(page_id, claude_r, gemini_r, gpt_r, synthesis)
         if failed_ais:
             mode_label = f"2社合議（{'/'.join(failed_ais)} unavailable）"
         else:
