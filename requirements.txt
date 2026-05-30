@@ -1,0 +1,6 @@
+# google_fit_sync.py 本体は標準ライブラリ (urllib) のみで動作するため
+# 追加依存は不要。
+#
+# 再認証ヘルパ google_fit_reauth.py のみ以下を必要とする
+# (ローカル PC で1回実行するときだけ。Render ランタイムには不要)。
+google-auth-oauthlib>=1.2.0
