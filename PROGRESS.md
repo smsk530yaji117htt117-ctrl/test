@@ -37,5 +37,8 @@
 - §6 確認事項「API発火された Routine 実行が15回/日上限に算入されるか」は窓口OS担当（本セッション外）。
 - 外部到達（Discord/Slack/Notion/Anthropic）の実テストは Render 環境と条件が異なるため本セッションでは mock のみ。実到達は マージ後 SELFTEST レポートで確認。
 - `NOTIFY_ROUTES` 既定値の確定は SELFTEST レポート後に窓口OSが行う。
-</content>
-</invoke>
+
+## 完了記録
+- PR: https://github.com/smsk530yaji117htt117-ctrl/test/pull/14 （base: `claude/notion-api-setup-BQGwN` / head: `claude/bridge-a1`）
+- 2026-06-10: PR 作成（draft）。CI「Test」success / コンフリクトなし / 全 32 テスト pass。
+- 2026-06-10: 矢嶋さんが GitHub UI で ready for review に変更（GitHub MCP の認証エンドポイントが 410 Gone で機能せず、セッションからの draft 解除が不可だったため）。マージは未実施（窓口OS側の担当）。
