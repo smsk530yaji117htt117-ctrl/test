@@ -1,0 +1,25 @@
+# --- 秘匿情報・認証情報 (絶対にコミットしない) ---
+.env
+.env.*
+!.env.example
+.secrets/
+*refresh_token*
+*client_secret*
+client_secret*.json
+token.json
+*.pem
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# --- ツール / ローカル設定 ---
+.claude/settings.local.json
+
+# --- OS ---
+.DS_Store
