@@ -21,8 +21,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 def main() -> None:
     # ① consensus.py を subprocess 実行（改変・import はしない）
     try:
-        completed = subprocess.run([sys.executable, "consensus.py"], cwd=HERE)
+        completed = subprocess.run([sys.executable, "consensus.py"], cwd=HERE, timeout=480)
         print(f"consensus.py 終了コード: {completed.returncode}")
+    except subprocess.TimeoutExpired:
+        print("consensus.py タイムアウト（480秒）")
     except Exception as e:
         print(mask_secrets(f"consensus.py 実行に失敗: {e}"))
 

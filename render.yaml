@@ -4,5 +4,5 @@ services:
     env: python
     schedule: "*/10 * * * *"
     buildCommand: pip install -r requirements.txt
-    startCommand: python consensus.py
+    startCommand: python main.py
     pythonVersion: "3.11.0"
