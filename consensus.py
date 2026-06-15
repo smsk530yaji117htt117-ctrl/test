@@ -61,35 +61,40 @@ SYNTHESIS_PROMPT_TEMPLATE = """\
 【OpenAIの回答】
 {openai_section}
 
-以下の8セクション形式で統合分析を作成してください：
+以下の8セクション形式で統合分析を作成してください。
+見出し（### で始まる行）は追加・削除・改名しないでください。
 
 ### 結論
-1〜2行で要点をまとめてください
+1〜2文で要点をまとめてください
 
 ### 根拠
-判断の根拠（各社の主張で一致した点、根拠データ）
+判断の根拠を3点以内で（各社の主張で一致した点、根拠データ）
 
 ### リスク
-潜在的な落とし穴・反対意見
+潜在的な落とし穴・反対意見を2点以内で
 
 ### 推奨アクション
-具体的な次の一歩
+具体的な次の一歩を1〜3件で
 
 ### タイプ判定
-質問の種類: dev_task / doc_task / research / discussion のいずれか
+primary: dev_task | doc_task | decision | research のいずれか1つ
+secondary: 0個以上（該当する型をカンマ区切り。なければ「なし」）
+例) primary: dev_task / secondary: doc_task
 
 ### 推奨成果物
-タイプ判定に応じた成果物:
-- dev_task: PR
-- doc_task: Notion ページ
-- research: 調査メモ
-- discussion: 議論まとめ
+primary 型に応じた成果物:
+- dev_task: 実装 PR
+- doc_task: Notion ドキュメント
+- decision: 人間が判断するための選択肢提示
+- research: 深掘り調査メモ
 
 ### Human Review Required
-true / false
+true または false（不可逆・高リスクは true。判断基準は docs/HUMAN_REVIEW_REQUIRED_POLICY.md）
 
 ### Next Route
-次に何をすべきか（例: Handoff 起票、人間レビュー、追加調査）\
+create_handoff | create_doc | no_action | research_more のいずれか1つ
+（型→ルート対応は docs/router_rules.md。
+ dev_task→create_handoff / doc_task→create_doc / decision→no_action / research→research_more）\
 """
 
 
@@ -478,6 +483,48 @@ def write_back_to_notion(page_id: str,
 
 
 # ════════════════════════════════════════════════════════════════════════
+# 4.5 会議 → Handoff 自動接続（型判定ルーティング）
+# ════════════════════════════════════════════════════════════════════════
+
+def route_synthesis_result(synthesis: str, *, source_page_id: str = "") -> None:
+    """
+    Synthesis テキストを型判定ルーティングに渡し、会議結果を次工程
+    （dev_task→Handoff起票 / doc_task→別ループ / decision→人間判断 / research→深掘り）
+    へ自動接続する。
+
+    安全方針:
+    - 合議ループ本体を壊さないため、ここで起きた例外は握りつぶしてログのみ出す。
+    - 実際の Notion 起票は環境変数 ENABLE_MEETING_ROUTING が真のときだけ行う
+      （未設定なら dry-run = 起票せずルート判定をログ出力するだけ）。
+    - doc_task は合議ループに入れない（meeting_result_processor 側で別ループ扱い）。
+    """
+    try:
+        # 遅延 import：合議ループと依存を切り離す（bridge と同じ思想）
+        from meeting_result_processor import route_meeting_result
+
+        dry_run = not _env_truthy(os.environ.get("ENABLE_MEETING_ROUTING"))
+        source_url = (
+            f"https://www.notion.so/{source_page_id.replace('-', '')}"
+            if source_page_id else ""
+        )
+        result = route_meeting_result(synthesis, source_url=source_url, dry_run=dry_run)
+        print(
+            f"▶ ルーティング: primary={result.decision.primary_type} "
+            f"secondary={result.decision.secondary_types or 'なし'} "
+            f"hrr={result.decision.human_review_required} "
+            f"actions={[a.route for a in result.actions]} "
+            f"{'(dry-run)' if dry_run else '(起票実行)'}"
+        )
+    except Exception as e:  # noqa: BLE001 — ルーティング失敗で合議を止めない
+        print(f"⚠️ ルーティングskip（合議は継続）: {mask_secrets(str(e))[:200]}")
+
+
+def _env_truthy(value: str | None) -> bool:
+    """環境変数の真偽判定（1/true/yes/on を真とみなす）"""
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+# ════════════════════════════════════════════════════════════════════════
 # 5. メイン処理
 # ════════════════════════════════════════════════════════════════════════
 
@@ -556,6 +603,11 @@ async def process_one(page: dict) -> None:
     except Exception as e:
         record_error(page_id, "NOTION_WRITE_ERROR", str(e))
         raise
+
+    # 会議 → Handoff 自動接続（型判定ルーティング）
+    # 合議ループ本体は壊さない：例外は握りつぶす。実起票は ENABLE_MEETING_ROUTING で
+    # 明示的に有効化されるまで dry-run（ログのみ）。doc_task は別ループ扱いで起票しない。
+    route_synthesis_result(synthesis, source_page_id=page_id)
 
 
 async def main() -> None:

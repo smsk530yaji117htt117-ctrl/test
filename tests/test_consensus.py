@@ -72,15 +72,20 @@ def test_synthesis_prompt_template_format():
 
 # ── synthesize() のテスト ──────────────────────────────────────────────────────
 
-@pytest.mark.asyncio
-async def test_synthesize_returns_tuple():
-    """synthesize() が (str, str) タプルを返す"""
+def test_synthesize_returns_tuple():
+    """synthesize() が (str, str) タプルを返す
+
+    注: 非同期テストプラグイン（pytest-asyncio 等）への依存を避けるため、
+    コルーチンは asyncio.run() で直接駆動する（追加依存なしで CI green）。
+    """
+    import asyncio
+
     mock_response = MagicMock()
     mock_response.content = [MagicMock(
         text="### 結論\nテスト結論\n### 根拠\n根拠\n"
              "### リスク\nなし\n### 推奨アクション\n次のステップ\n"
-             "### タイプ判定\ndiscussion\n### 推奨成果物\n議論まとめ\n"
-             "### Human Review Required\nfalse\n### Next Route\n追加調査不要"
+             "### タイプ判定\nprimary: decision\nsecondary: なし\n### 推奨成果物\n判断材料\n"
+             "### Human Review Required\nfalse\n### Next Route\nno_action"
     )]
 
     mock_client = AsyncMock()
@@ -88,12 +93,12 @@ async def test_synthesize_returns_tuple():
 
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test-key"}):
         with patch("anthropic.AsyncAnthropic", return_value=mock_client):
-            result = await synthesize(
+            result = asyncio.run(synthesize(
                 question="テスト",
                 claude_r="Claude回答",
                 gemini_r="Gemini回答",
                 gpt_r="GPT回答",
-            )
+            ))
 
     assert isinstance(result, tuple)
     assert len(result) == 2
