@@ -23,6 +23,7 @@ human_review_required（docs/HUMAN_REVIEW_REQUIRED_POLICY.md）:
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from typing import Callable
@@ -39,6 +40,12 @@ ROUTER_RULES: dict[str, str] = {
 VALID_TYPES = tuple(ROUTER_RULES.keys())
 VALID_ROUTES = ("create_handoff", "create_doc", "no_action", "research_more")
 
+# Next Route に複数候補が混在したとき（LLM がメニューを丸写し / 両論併記した等）に
+# 適用する「決定的な優先順位」。VALID_ROUTES のタプル宣言順（＝偶発的な順序）に
+# 判定が引きずられる順序バイアスを排し、入力中のトークン出現順にも依存させない。
+# 安全側（起票しない・可逆＝人手判断や別ループ）を上位に固定する。
+_ROUTE_PRIORITY = ("no_action", "create_doc", "research_more", "create_handoff")
+
 # 曖昧・未記載時の human_review_required 既定値（安全側 = true）
 DEFAULT_HUMAN_REVIEW_REQUIRED = True
 
@@ -48,6 +55,33 @@ DEFAULT_HUMAN_REVIEW_REQUIRED = True
 #   research_more  … 深掘り Handoff として起票
 #   no_action      … 起票しない（人間へ判断提示）
 _ROUTES_THAT_CREATE = {"create_handoff", "research_more"}
+
+# 二重起票防止（idempotency）の既定登録簿。
+#   同一 synthesis（＋起票元 source_url）から会議/Handoff を二重に起票しないための
+#   プロセス内ガード。consensus.py 側の Status ベースの重複防止フラグ
+#   （try_claim_page = 楽観ロック）を補完する多層防御として働く。
+#   呼び出し側／テストは route_meeting_result(..., dedup_store=...) で任意の集合を
+#   注入でき、その場合この既定登録簿は使わない。
+_SEEN_FINGERPRINTS: set[str] = set()
+
+
+def _synthesis_fingerprint(text: str, source_url: str = "") -> str:
+    """synthesis 本文＋起票元から二重起票判定用の安定指紋（sha256）を作る。
+
+    空白のゆらぎ（末尾改行・連続スペース等）は吸収し、同一内容を同一指紋に寄せる。
+    """
+    normalized = "\n".join((text or "").split())
+    payload = f"{source_url}\x00{normalized}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def reset_dedup_registry() -> None:
+    """プロセス内の二重起票防止登録簿をクリアする（テスト／運用リセット用）。"""
+    _SEEN_FINGERPRINTS.clear()
+
+
+def _join_note(existing: str, addition: str) -> str:
+    return f"{existing} / {addition}" if existing else addition
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -78,6 +112,7 @@ class HandoffAction:
     spec: dict | None = None   # 起票内容（generate_handoff_prompt の戻り値）。no_action は None
     created: dict | None = None # 起票結果（dry-run 時は payload、実起票時は Notion 応答）
     note: str = ""             # 補足（no_action の人間提示文など）
+    skipped: bool = False      # 二重起票防止ガードで起票を見送った場合 True
 
 
 @dataclass
@@ -190,11 +225,26 @@ def _parse_bool(text: str, *, default: bool) -> bool:
 
 
 def _parse_route(text: str, primary_type: str) -> str:
-    """Next Route セクションから enum 値を抽出。無ければ型から導出。"""
-    low = text.lower()
-    for route in VALID_ROUTES:
-        if route in low:
-            return route
+    """Next Route セクションから enum ルートを決定的に1つ選ぶ。
+
+    判定は「入力トークンの出現順」にも「VALID_ROUTES の宣言順」にも依存させない:
+      1. 有効ルートがちょうど1つだけ現れた → それを採用（LLM の明示指定を尊重）。
+      2. 複数現れた（メニュー丸写し／両論併記などで曖昧）→ 明示した優先順位
+         _ROUTE_PRIORITY（安全側を上位）で決定する。
+      3. 1つも現れない → 型→ルートの正準マッピング ROUTER_RULES で導出する。
+
+    旧実装は VALID_ROUTES のタプル順で先頭一致を返していたため、宣言順という
+    偶発的なバイアスに判定が引きずられていた。本実装はそれを明示順位に固定する。
+    """
+    low = (text or "").lower()
+    present = [route for route in VALID_ROUTES if route in low]
+    distinct = list(dict.fromkeys(present))
+    if len(distinct) == 1:
+        return distinct[0]
+    if distinct:
+        for route in _ROUTE_PRIORITY:
+            if route in distinct:
+                return route
     return ROUTER_RULES.get(primary_type, "no_action")
 
 
@@ -289,6 +339,7 @@ def route_meeting_result(
     source_url: str = "",
     dry_run: bool = True,
     handoff_creator: Callable[..., dict] | None = None,
+    dedup_store: set[str] | None = None,
 ) -> RoutingResult:
     """
     Synthesis テキストを解析し、ルート規則に従って起票（または起票計画）を行う。
@@ -298,12 +349,26 @@ def route_meeting_result(
       handoff_creator 省略時は relay.create_handoff_page.create_handoff_page を使用。
     - doc_task 単独（create_doc）は別ループ扱いのため、ここでは起票しない（計画のみ）。
     - no_action は起票しない（人間へ判断提示）。
+
+    二重起票防止ガード:
+    - 同一 synthesis（＋起票元 source_url）から会議/Handoff を二重に起票しない。
+      既に起票済みの組み合わせなら、起票を伴うアクションは handoff_creator を呼ばず
+      skip（action.skipped=True / created=None）にする。
+    - 判定キーは _synthesis_fingerprint（本文＋source_url の sha256）。登録簿は
+      既定で本モジュールのプロセス内集合 _SEEN_FINGERPRINTS（consensus.py の Status
+      ベース重複防止＝try_claim_page を補完する多層防御）。dedup_store を渡せば
+      呼び出し側・テストが任意の登録簿を注入できる。
     """
     decision = parse_synthesis(text)
     actions = plan_actions(decision)
 
     if handoff_creator is None:
         from relay.create_handoff_page import create_handoff_page as handoff_creator  # noqa: E501
+
+    store = _SEEN_FINGERPRINTS if dedup_store is None else dedup_store
+    fingerprint = _synthesis_fingerprint(text, source_url)
+    already_filed = fingerprint in store
+    filed_now = False
 
     for action in actions:
         action.spec = _attach_source(action.spec, source_url)
@@ -316,7 +381,18 @@ def route_meeting_result(
         )
         if not should_create or is_standalone_doc or action.spec is None:
             continue
+        if already_filed:
+            # 二重起票防止: 同一 synthesis から起票済み → 起票せず skip
+            action.skipped = True
+            action.note = _join_note(
+                action.note, "二重起票防止: 同一synthesis結果から起票済みのためskip"
+            )
+            continue
         action.created = handoff_creator(action.spec, dry_run=dry_run)
+        filed_now = True
+
+    if filed_now:
+        store.add(fingerprint)
 
     return RoutingResult(decision=decision, actions=actions, dry_run=dry_run)
 
