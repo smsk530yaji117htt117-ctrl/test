@@ -1,0 +1,76 @@
+name: Test
+
+# マージ gate の決定論的歯止め（Dispatcher v2.7 self-verify=advisory の次段）。
+# 全ブランチ宛ての PR で起動し、リポジトリのテストスイートを実行する。
+# いずれかのテストが fail したら workflow が fail する（exit code 非ゼロ）。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 同一 ref の古い実行はキャンセルして枠を節約する。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Detect test stack and run all tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          ran_any=0
+
+          # ---------- Python (pytest) ----------
+          if find . -path ./node_modules -prune -o -type f \( -name 'test_*.py' -o -name '*_test.py' \) -print 2>/dev/null | grep -q . \
+             || [ -f pytest.ini ] || [ -f tox.ini ]; then
+            echo "::group::Python tests (pytest)"
+            python -m pip install --upgrade pip
+            [ -f requirements.txt ] && pip install -r requirements.txt || true
+            [ -f requirements-dev.txt ] && pip install -r requirements-dev.txt || true
+            pip install pytest
+            set +e
+            python -m pytest -v
+            code=$?
+            set -e
+            # exit 5 = テストが1件も収集されなかった（回帰なし）。緑扱いにする。
+            if [ "$code" -eq 5 ]; then
+              echo "pytest: no tests collected (exit 5) -> treated as pass"
+            elif [ "$code" -ne 0 ]; then
+              echo "pytest failed with exit code $code"
+              exit "$code"
+            fi
+            ran_any=1
+            echo "::endgroup::"
+          fi
+
+          # ---------- Node.js (npm test) ----------
+          if [ -f package.json ] \
+             && node -e "process.exit((require('./package.json').scripts||{}).test ? 0 : 1)"; then
+            echo "::group::Node tests (npm test)"
+            if [ -f package-lock.json ]; then npm ci; else npm install; fi
+            npm test
+            ran_any=1
+            echo "::endgroup::"
+          fi
+
+          # ---------- テスト基盤なし ----------
+          if [ "$ran_any" -eq 0 ]; then
+            echo "No Python/Node test suite detected on this ref. Nothing to run -> pass."
+          fi
