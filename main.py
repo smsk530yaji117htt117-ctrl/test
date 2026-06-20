@@ -17,14 +17,24 @@ from notify import mask_secrets
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# subprocess hard-kill までの秒数。環境変数で上書き可能（値が1箇所に集約される）。
+# consensus 側の RUNNING_TIMEOUT_MINUTES（既定15分）はこの kill を上回る前提で短めに設定し、
+# kill された Running 行を数 cron ティックで回収できるようにしている。
+CONSENSUS_TIMEOUT_SECONDS = int(os.environ.get("CONSENSUS_TIMEOUT_SECONDS", "480"))
+
 
 def main() -> None:
     # ① consensus.py を subprocess 実行（改変・import はしない）
     try:
-        completed = subprocess.run([sys.executable, "consensus.py"], cwd=HERE, timeout=480)
+        completed = subprocess.run(
+            [sys.executable, "consensus.py"], cwd=HERE, timeout=CONSENSUS_TIMEOUT_SECONDS
+        )
         print(f"consensus.py 終了コード: {completed.returncode}")
     except subprocess.TimeoutExpired:
-        print("consensus.py タイムアウト（480秒）")
+        print(
+            f"consensus.py タイムアウト（{CONSENSUS_TIMEOUT_SECONDS}秒）。"
+            f"Running 行は次回起動時の handle_running_timeouts で Error に回収されます"
+        )
     except Exception as e:
         print(mask_secrets(f"consensus.py 実行に失敗: {e}"))
 

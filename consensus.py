@@ -44,7 +44,13 @@ GEMINI_ROLE_INSTRUCTION = """あなたの役割は「観点出し」です。
 DB_ID = os.environ.get("NOTION_DATABASE_ID", "")
 
 # ─── タイムアウト設定 ─────────────────────────────────────────────────────────
-RUNNING_TIMEOUT_MINUTES = 60
+# Running のまま放置された行を Error に回収するまでの分数。
+# main.py の subprocess hard-kill（既定480秒=8分）で consensus が殺されると、
+# claim 済みの行は Running のまま残る。旧値60分では回収まで最大約52分（cron5ティック分）
+# サイレント停止していた。1回の実処理は hard-kill 上限（=8〜9分）を超えないため、
+# それを十分上回りつつ60分より短い 15分 を既定とし、数ティックで回収できるようにする。
+# 環境変数 RUNNING_TIMEOUT_MINUTES で上書き可能。
+RUNNING_TIMEOUT_MINUTES = int(os.environ.get("RUNNING_TIMEOUT_MINUTES", "15"))
 
 # ─── 統合分析プロンプトテンプレート（8セクション出力形式）──────────────────────
 SYNTHESIS_PROMPT_TEMPLATE = """\

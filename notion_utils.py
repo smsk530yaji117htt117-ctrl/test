@@ -41,7 +41,9 @@ def _request(method: str, path: str, body: dict | None = None) -> dict:
     data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body else None
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req) as resp:
+        # timeout を付与（hot path。bridge_notion.py の timeout=30 と統一）。
+        # 無指定だと Notion API の遅延でソケットが固まり、cron スロットを食い潰す。
+        with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8")
