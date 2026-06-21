@@ -14,7 +14,7 @@ Notion 公式 SDK（notion-client）で各 DB を `databases.query` し、
 """
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
 try:  # notion-client は dashboard/requirements.txt で導入（テストの純関数部は不要）
     from notion_client import Client
@@ -250,7 +250,3 @@ def fetch_handoff(client) -> dict:
                       filter={"property": "Status", "select": {"equals": "Draft"}},
                       sorts=[{"property": "Updated", "direction": "descending"}])
     return build_handoff_summary(pages)
-
-
-# セクション定義（タイトル, 取得関数, レンダラ名）— app.py から使う
-SectionFetcher = Callable[[Any], Any]
