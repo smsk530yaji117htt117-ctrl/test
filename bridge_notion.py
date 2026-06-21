@@ -18,7 +18,6 @@ NOTION_API_BASE = "https://api.notion.com/v1"
 
 # ─── 確定済みの固定 ID（シークレットではない / 指示書で確定）────────────────────
 QUEUE_DB_ID = "ffad28a9f7b648cb8efdff4c47dda4cb"          # Bridge Queue DB
-QUEUE_DATA_SOURCE_ID = "8cc53d3d-cf72-4697-84c4-6373498c4d89"
 DIGEST_PAGE_ID = "36a5ae2b8d6a81ee8b46e86c7941058f"        # 通知終端のダイジェストページ
 ERROR_MENTION_USER_ID = "173d872b-594c-81b4-af4a-000262688c71"  # level=error 時のメンション先
 
