@@ -617,7 +617,13 @@ async def process_one(page: dict) -> None:
 
 
 async def main() -> None:
-    # 起動時：60分以上Runningのままの行をErrorに変更する
+    # 設定の fail-fast 検証：DB_ID 未設定なら cron 途中で不透明な Notion 400/404 になる前に止める
+    if not DB_ID:
+        raise EnvironmentError(
+            "NOTION_DATABASE_ID が未設定です。Render の環境変数を確認してください。"
+        )
+
+    # 起動時：RUNNING_TIMEOUT_MINUTES（既定15分）以上 Running のままの行を Error に回収する
     handle_running_timeouts()
 
     # Pending行を取得
