@@ -11,7 +11,6 @@ import sys
 import json
 import urllib.request
 import urllib.error
-from typing import Any
 
 # Windows環境でのUTF-8出力対応
 if sys.platform == "win32":
@@ -20,7 +19,6 @@ if sys.platform == "win32":
 
 NOTION_VERSION = "2022-06-28"
 NOTION_API_BASE = "https://api.notion.com/v1"
-TEXT_LIMIT = 2000  # Notion API の rich_text 1ブロックあたりの文字数上限
 
 
 def _get_token() -> str:
@@ -67,24 +65,6 @@ def to_rich_text(text: str, chunk_size: int = 1500) -> list:
     ]
 
 
-def _split_text(text: str) -> list[dict]:
-    """後方互換用。新規コードはto_rich_text()を使うこと"""
-    return to_rich_text(text)
-
-
-def _paragraph_block(text: str) -> dict:
-    return {"object": "block", "type": "paragraph", "paragraph": {"rich_text": _split_text(text)}}
-
-
-def _heading_block(text: str, level: int = 2) -> dict:
-    htype = f"heading_{level}"
-    return {"object": "block", "type": htype, htype: {"rich_text": _split_text(text[:TEXT_LIMIT])}}
-
-
-def _divider_block() -> dict:
-    return {"object": "block", "type": "divider", "divider": {}}
-
-
 # ─────────────────────────────────────────────
 # 公開 API
 # ─────────────────────────────────────────────
@@ -94,74 +74,32 @@ def get_page(page_id: str) -> dict:
     return _request("GET", f"/pages/{page_id.replace('-', '')}")
 
 
-def get_block_children(block_id: str) -> list[dict]:
-    """ブロックの子要素一覧を取得"""
-    result = _request("GET", f"/blocks/{block_id.replace('-', '')}/children?page_size=100")
-    return result.get("results", [])
-
-
-def append_paragraph(page_id: str, text: str) -> dict:
-    """ページにパラグラフブロックを追記する（2000文字制限を自動処理）"""
-    blocks = []
-    # テキストが2000文字を超える場合は複数ブロックに分割
-    for i in range(0, max(len(text), 1), TEXT_LIMIT):
-        chunk = text[i : i + TEXT_LIMIT]
-        blocks.append(_paragraph_block(chunk))
-    return _request(
-        "PATCH",
-        f"/blocks/{page_id.replace('-', '')}/children",
-        {"children": blocks},
-    )
-
-
-def append_section(page_id: str, heading: str, body: str, level: int = 2) -> dict:
-    """見出し＋本文ブロックをまとめてページに追記する"""
-    children: list[dict] = [_heading_block(heading, level)]
-    for i in range(0, max(len(body), 1), TEXT_LIMIT):
-        children.append(_paragraph_block(body[i : i + TEXT_LIMIT]))
-    children.append(_divider_block())
-    return _request(
-        "PATCH",
-        f"/blocks/{page_id.replace('-', '')}/children",
-        {"children": children},
-    )
-
-
-def update_page_title(page_id: str, title: str) -> dict:
-    """ページタイトルを更新する"""
-    return _request(
-        "PATCH",
-        f"/pages/{page_id.replace('-', '')}",
-        {"properties": {"title": {"title": [{"text": {"content": title[:TEXT_LIMIT]}}]}}},
-    )
-
-
-def create_child_page(parent_id: str, title: str, content_blocks: list[dict] | None = None) -> dict:
-    """親ページの下に新しいページを作成する"""
-    body: dict[str, Any] = {
-        "parent": {"page_id": parent_id.replace("-", "")},
-        "properties": {"title": {"title": [{"text": {"content": title[:TEXT_LIMIT]}}]}},
-    }
-    if content_blocks:
-        body["children"] = content_blocks
-    return _request("POST", "/pages", body)
-
-
-def search_pages(query: str, page_size: int = 10) -> list[dict]:
-    """ワークスペース内をキーワード検索する"""
-    result = _request("POST", "/search", {"query": query, "page_size": page_size})
-    return result.get("results", [])
-
-
 def query_database(database_id: str, filter_body: dict | None = None, sorts: list | None = None) -> list[dict]:
-    """データベースをクエリする"""
-    body: dict = {"page_size": 100}
-    if filter_body:
-        body["filter"] = filter_body
-    if sorts:
-        body["sorts"] = sorts
-    result = _request("POST", f"/databases/{database_id.replace('-', '')}/query", body)
-    return result.get("results", [])
+    """
+    データベースをクエリして全行を返す。
+
+    Notion の query は1レスポンス最大100件。`has_more` が真の間 `next_cursor` で
+    継続取得する（旧実装は先頭100件で打ち切り、バックログ滞留時に超過分を
+    サイレントに取りこぼしていた）。dashboard/notion_reader.query_all と同方式。
+    """
+    results: list[dict] = []
+    start_cursor: str | None = None
+    while True:
+        body: dict = {"page_size": 100}
+        if filter_body:
+            body["filter"] = filter_body
+        if sorts:
+            body["sorts"] = sorts
+        if start_cursor:
+            body["start_cursor"] = start_cursor
+        result = _request("POST", f"/databases/{database_id.replace('-', '')}/query", body)
+        results.extend(result.get("results", []))
+        if not result.get("has_more"):
+            break
+        start_cursor = result.get("next_cursor")
+        if not start_cursor:
+            break
+    return results
 
 
 def update_page_properties(page_id: str, properties: dict) -> dict:
@@ -171,26 +109,3 @@ def update_page_properties(page_id: str, properties: dict) -> dict:
         f"/pages/{page_id.replace('-', '')}",
         {"properties": properties},
     )
-
-
-# ─────────────────────────────────────────────
-# 動作確認用
-# ─────────────────────────────────────────────
-
-if __name__ == "__main__":
-    print("Notion API 接続テスト...")
-    try:
-        results = search_pages("個人OSハブ", page_size=3)
-        print(f"✅ 接続成功。検索結果: {len(results)} 件")
-        for r in results:
-            title = ""
-            props = r.get("properties", {})
-            for v in props.values():
-                if v.get("type") == "title":
-                    items = v.get("title", [])
-                    if items:
-                        title = items[0].get("plain_text", "")
-                        break
-            print(f"  - {title or '(タイトルなし)'} [{r.get('id', '')}]")
-    except Exception as e:
-        print(f"❌ エラー: {e}")
