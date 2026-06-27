@@ -17,7 +17,7 @@
 | テーマ名 | 種類 | 出所 | レビュー | 進捗 | slug |
 |---|---|---|---|---|---|
 | Notionを外部記憶にしてAIを育てる | 第二の脳 | 手動 | 採用 | 草稿済み | notion-external-memory |
-| 承認ゲート設計：AIの暴走をどう止めるか | 設計思想 | 手動 | 採用 | 未着手 | approval-gate-design |
+| 承認ゲート設計：AIの暴走をどう止めるか | 設計思想 | 手動 | 採用 | 草稿済み | approval-gate-design |
 | スマホをポストに封印する習慣設計 | 横展開 | 手動 | 採用 | 未着手 | phone-in-mailbox-habit |
 | 投資OS：感情を排除しルールで売買する | ビフォーアフター | 手動 | 採用 | 未着手 | investment-os-rules |
 | 3社合議エンジンを月1〜2ドルで常駐させた構築記 | インフラ | 手動 | 採用 | 未着手 | three-model-consensus-infra |
