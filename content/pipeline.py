@@ -15,11 +15,12 @@
 - 失敗時は静かに無視せず stderr へ出して非ゼロ終了する。
 - `--dry-run` で書き込みなしに予定を確認できる。
 
-themes.md は 5 列の Markdown テーブル:
-  | テーマ名 | 種類 | 出所 | レビュー | 進捗 |
+themes.md は 6 列の Markdown テーブル:
+  | テーマ名 | 種類 | 出所 | レビュー | 進捗 | slug |
 - 出所:   手動 / 自動
 - レビュー: 採用 / 未確認 / 却下（却下は記事生成で必ずスキップ＝暴走の停止）
 - 進捗:   未着手 / 草稿済み
+- slug:   草稿ファイル名用の英小文字ハイフン識別子。空欄ならタイトル由来へフォールバック
 
 モード:
   plan        : 記事生成の次の1件（レビュー≠却下 かつ 進捗=未着手）と生成プロンプトを出力
@@ -89,6 +90,7 @@ class Theme(NamedTuple):
     source: str
     review: str
     progress: str
+    slug: str  # 草稿ファイル名用。空欄ならタイトル由来へフォールバック
     line_no: int  # themes.md 内の0始まり行番号（テーブル行のみ）
 
 
@@ -111,6 +113,12 @@ def slugify(title: str) -> str:
     # ascii 成分が無いタイトル（日本語のみ）はタイトル由来の安定ハッシュに退避。
     digest = hashlib.sha1(title.strip().encode("utf-8")).hexdigest()[:8]
     return f"theme-{digest}"
+
+
+def resolve_slug(theme: Theme) -> str:
+    """ファイル名用 slug。台帳の slug 列を優先し、空欄のみタイトル由来へフォールバック。"""
+    explicit = theme.slug.strip()
+    return explicit if explicit else slugify(theme.title)
 
 
 def _is_table_row(line: str) -> bool:
@@ -139,13 +147,13 @@ def parse_themes(text: str) -> list[Theme]:
         if not _is_table_row(line):
             continue
         cells = _cells(line)
-        if len(cells) != 5:
-            raise PipelineError(f"テーブル行の列数が5ではありません（行{i}）: {line!r}")
-        title, kind, source, review, progress = cells
+        if len(cells) != 6:
+            raise PipelineError(f"テーブル行の列数が6ではありません（行{i}）: {line!r}")
+        title, kind, source, review, progress, slug = cells
         if title in seen:
             raise PipelineError(f"テーマ名が重複しています: {title}")
         seen.add(title)
-        themes.append(Theme(title, kind, source, review, progress, i))
+        themes.append(Theme(title, kind, source, review, progress, slug, i))
     return themes
 
 
@@ -174,18 +182,20 @@ def render_theme_prompt(themes: list[Theme], draft_filenames: list[str]) -> str:
     return THEME_PROMPT_TEMPLATE.format(themes=themes_block, drafts=drafts_block)
 
 
-def _row(title: str, kind: str, source: str, review: str, progress: str) -> str:
-    return f"| {title} | {kind} | {source} | {review} | {progress} |"
+def _row(title: str, kind: str, source: str, review: str, progress: str,
+         slug: str) -> str:
+    return f"| {title} | {kind} | {source} | {review} | {progress} | {slug} |"
 
 
 def mark_done(text: str, theme: Theme) -> str:
-    """該当行の進捗を「草稿済み」に更新する。既に草稿済みなら不変（冪等）。"""
+    """該当行の進捗を「草稿済み」に更新する。既に草稿済みなら不変（冪等）。slug 列は保つ。"""
     lines = text.splitlines(keepends=True)
     if not 0 <= theme.line_no < len(lines):
         raise PipelineError("テーマ行番号が範囲外です（themes.md が変化した可能性）")
     eol = "\n" if lines[theme.line_no].endswith("\n") else ""
     lines[theme.line_no] = _row(
-        theme.title, theme.kind, theme.source, theme.review, PROGRESS_DONE) + eol
+        theme.title, theme.kind, theme.source, theme.review, PROGRESS_DONE,
+        theme.slug) + eol
     return "".join(lines)
 
 
@@ -219,7 +229,8 @@ def append_themes(text: str, new_themes: list[tuple[str, str]]) -> tuple[str, in
         if title in seen:
             continue
         seen.add(title)
-        rows.append(_row(title, kind, SOURCE_AUTO, REVIEW_UNCONFIRMED, PROGRESS_TODO))
+        # 自動補充は slug 空欄（ファイル名生成時にタイトル由来へフォールバック）。
+        rows.append(_row(title, kind, SOURCE_AUTO, REVIEW_UNCONFIRMED, PROGRESS_TODO, ""))
     if not rows:
         return text, 0
     lines = text.splitlines(keepends=True)
@@ -291,7 +302,7 @@ def run(themes_path: str, drafts_dir: str, mode: str = "plan",
         print("[skip] 対象テーマがありません（レビュー≠却下 かつ 未着手 が0件 → 即終了）")
         return 0
 
-    fname = draft_filename(today, slugify(theme.title))
+    fname = draft_filename(today, resolve_slug(theme))
     draft_path = os.path.join(drafts_dir, fname)
     prompt = render_generation_prompt(theme)
 

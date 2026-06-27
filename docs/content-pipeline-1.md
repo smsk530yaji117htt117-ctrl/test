@@ -12,13 +12,13 @@
 
 | ファイル | 役割 |
 |---|---|
-| `content/themes.md` | テーマ台帳（5列テーブル: テーマ名 / 種類 / 出所 / レビュー / 進捗） |
+| `content/themes.md` | テーマ台帳（6列テーブル: テーマ名 / 種類 / 出所 / レビュー / 進捗 / slug） |
 | `content/pipeline.py` | 生成・補充ルーティンの決定論パート（stdlib のみ） |
 | `content/drafts/` | 草稿の保存先（`YYYY-MM-DD-slug.md`、1ファイル1記事） |
 | `tests/test_content_pipeline.py` | 純粋ロジック＋driver のユニットテスト（ネットワーク非依存） |
 | `docs/content-pipeline-1.md` | 本書（設計・検証手順・有効化手順） |
 
-`python3 -m unittest discover -s tests` → 既存と合わせて **43 passed / 0 failed**。
+`python3 -m unittest discover -s tests` → 既存と合わせて **45 passed / 0 failed**。
 
 ## 役割分担（cloud-robust 方式）
 
@@ -35,15 +35,16 @@
 
 ## 台帳の形式（`content/themes.md`）
 
-5 列の Markdown テーブル。
+6 列の Markdown テーブル。
 
-| テーマ名 | 種類 | 出所 | レビュー | 進捗 |
-|---|---|---|---|---|
-| 例 | 設計思想 | 手動 | 採用 | 未着手 |
+| テーマ名 | 種類 | 出所 | レビュー | 進捗 | slug |
+|---|---|---|---|---|---|
+| 例 | 設計思想 | 手動 | 採用 | 未着手 | example-slug |
 
 - **出所**: `手動` / `自動`（補充ルーティンが足したもの）
 - **レビュー**: `採用` / `未確認` / `却下`
 - **進捗**: `未着手` / `草稿済み`
+- **slug**: 草稿ファイル名用の英小文字ハイフン識別子（人手可読）。空欄ならフォールバック（下記）。
 - テーマ名は台帳内で一意（重複は parse 時に拒否）。
 
 ## 暴走を止める仕組み（採用/却下フラグ）
@@ -90,14 +91,15 @@
 
 ## slug について
 
-`slug` は草稿ファイル名 `YYYY-MM-DD-slug.md` に使う。タイトルの ascii 成分から生成し、
-ascii 成分が無い（日本語のみの）場合はタイトル由来の**安定ハッシュ** `theme-xxxxxxxx` に退避する
-（決定論的で一意。草稿は手動公開のためファイル名の可読性は重視しない）。
+`slug` は草稿ファイル名 `YYYY-MM-DD-slug.md` に使う。生成時は **台帳の `slug` 列を優先**する
+（人手可読・例 `notion-external-memory`）。`slug` 列が**空欄の行のみ**、タイトルの ascii 成分から
+生成し、ascii 成分が無い（日本語のみの）場合はタイトル由来の**安定ハッシュ** `theme-xxxxxxxx` に
+退避する（決定論的で一意）。自動補充テーマは slug 空欄で入るため、このフォールバックに従う。
 
 ## 動作確認（ローカル）
 
 ```bash
-python3 -m unittest discover -s tests              # 自動テスト（43 passed）
+python3 -m unittest discover -s tests              # 自動テスト（45 passed）
 python3 -m content.pipeline --mode plan            # 記事生成: 次の1件＋プロンプト
 python3 -m content.pipeline --mode themes-plan     # 補充: テーマ生成プロンプト
 python3 -m content.pipeline --mode themes-add \

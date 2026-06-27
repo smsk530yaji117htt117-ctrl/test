@@ -9,14 +9,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from content import pipeline as cp  # noqa: E402
 
+# 6列テーブル。最後の行は slug 空欄（フォールバック確認用）。
 SAMPLE = (
     "# テーマ台帳\n"
-    "| テーマ名 | 種類 | 出所 | レビュー | 進捗 |\n"
-    "|---|---|---|---|---|\n"
-    "| Notionを外部記憶にしてAIを育てる | 第二の脳 | 手動 | 採用 | 未着手 |\n"
-    "| 却下されたやつ | ノウハウ | 自動 | 却下 | 未着手 |\n"
-    "| 既に書いたやつ | ノウハウ | 手動 | 採用 | 草稿済み |\n"
-    "| 未確認の自動テーマ | 設計思想 | 自動 | 未確認 | 未着手 |\n"
+    "| テーマ名 | 種類 | 出所 | レビュー | 進捗 | slug |\n"
+    "|---|---|---|---|---|---|\n"
+    "| Notionを外部記憶にしてAIを育てる | 第二の脳 | 手動 | 採用 | 未着手 | notion-external-memory |\n"
+    "| 却下されたやつ | ノウハウ | 自動 | 却下 | 未着手 | rejected-one |\n"
+    "| 既に書いたやつ | ノウハウ | 手動 | 採用 | 草稿済み | already-done |\n"
+    "| 未確認の自動テーマ | 設計思想 | 自動 | 未確認 | 未着手 |  |\n"
 )
 
 
@@ -35,7 +36,7 @@ class TestPureLogic(unittest.TestCase):
         self.assertTrue(a.startswith("theme-"))
         self.assertNotEqual(cp.slugify("別のタイトル"), a)
 
-    def test_parse_themes_extracts_five_columns(self):
+    def test_parse_themes_extracts_six_columns(self):
         themes = cp.parse_themes(SAMPLE)
         self.assertEqual(len(themes), 4)
         t = themes[0]
@@ -44,35 +45,47 @@ class TestPureLogic(unittest.TestCase):
         self.assertEqual(t.source, "手動")
         self.assertEqual(t.review, "採用")
         self.assertEqual(t.progress, "未着手")
+        self.assertEqual(t.slug, "notion-external-memory")
+        # 空欄 slug の行は slug == ""。
+        self.assertEqual(themes[3].slug, "")
 
     def test_parse_themes_rejects_duplicate_title(self):
-        dup = SAMPLE + "| Notionを外部記憶にしてAIを育てる | x | 手動 | 採用 | 未着手 |\n"
+        dup = SAMPLE + "| Notionを外部記憶にしてAIを育てる | x | 手動 | 採用 | 未着手 | s |\n"
         with self.assertRaises(cp.PipelineError):
             cp.parse_themes(dup)
 
     def test_parse_themes_rejects_wrong_column_count(self):
-        bad = SAMPLE + "| 足りない | 列 | だけ |\n"
+        bad = SAMPLE + "| 足りない | 列 | だけ |\n"  # 旧5列も6列でないので拒否される
         with self.assertRaises(cp.PipelineError):
             cp.parse_themes(bad)
+
+    def test_resolve_slug_prefers_column(self):
+        theme = cp.parse_themes(SAMPLE)[0]
+        self.assertEqual(cp.resolve_slug(theme), "notion-external-memory")
+
+    def test_resolve_slug_falls_back_when_blank(self):
+        theme = cp.parse_themes(SAMPLE)[3]  # slug 空欄の日本語タイトル
+        resolved = cp.resolve_slug(theme)
+        self.assertTrue(resolved.startswith("theme-"))
+        self.assertEqual(resolved, cp.slugify(theme.title))
 
     def test_select_next_skips_rejected_and_done(self):
         nxt = cp.select_next(cp.parse_themes(SAMPLE))
         self.assertEqual(nxt.title, "Notionを外部記憶にしてAIを育てる")
 
     def test_select_next_includes_unconfirmed_auto(self):
-        # 採用の未着手を全て草稿済みにすると、未確認の自動テーマが選ばれる。
         text = SAMPLE.replace(
-            "| Notionを外部記憶にしてAIを育てる | 第二の脳 | 手動 | 採用 | 未着手 |",
-            "| Notionを外部記憶にしてAIを育てる | 第二の脳 | 手動 | 採用 | 草稿済み |")
+            "| Notionを外部記憶にしてAIを育てる | 第二の脳 | 手動 | 採用 | 未着手 | notion-external-memory |",
+            "| Notionを外部記憶にしてAIを育てる | 第二の脳 | 手動 | 採用 | 草稿済み | notion-external-memory |")
         nxt = cp.select_next(cp.parse_themes(text))
         self.assertEqual(nxt.title, "未確認の自動テーマ")
 
     def test_select_next_none_when_only_rejected_or_done(self):
         text = (
-            "| テーマ名 | 種類 | 出所 | レビュー | 進捗 |\n"
-            "|---|---|---|---|---|\n"
-            "| a | k | 自動 | 却下 | 未着手 |\n"
-            "| b | k | 手動 | 採用 | 草稿済み |\n"
+            "| テーマ名 | 種類 | 出所 | レビュー | 進捗 | slug |\n"
+            "|---|---|---|---|---|---|\n"
+            "| a | k | 自動 | 却下 | 未着手 | a |\n"
+            "| b | k | 手動 | 採用 | 草稿済み | b |\n"
         )
         self.assertIsNone(cp.select_next(cp.parse_themes(text)))
 
@@ -93,13 +106,14 @@ class TestPureLogic(unittest.TestCase):
         self.assertIn("2026-06-01-x.md", prompt)
         self.assertIn("除外リスト", prompt)
 
-    def test_mark_done_flips_only_progress(self):
+    def test_mark_done_flips_progress_and_keeps_slug(self):
         themes = cp.parse_themes(SAMPLE)
         updated = cp.mark_done(SAMPLE, themes[0])
         reparsed = {t.title: t for t in cp.parse_themes(updated)}
-        self.assertEqual(reparsed["Notionを外部記憶にしてAIを育てる"].progress, "草稿済み")
-        # レビュー・出所は不変、他行も不変。
-        self.assertEqual(reparsed["Notionを外部記憶にしてAIを育てる"].review, "採用")
+        done = reparsed["Notionを外部記憶にしてAIを育てる"]
+        self.assertEqual(done.progress, "草稿済み")
+        self.assertEqual(done.review, "採用")
+        self.assertEqual(done.slug, "notion-external-memory")  # slug 列を保つ
         self.assertEqual(reparsed["未確認の自動テーマ"].progress, "未着手")
 
     def test_mark_done_idempotent(self):
@@ -119,7 +133,7 @@ class TestPureLogic(unittest.TestCase):
         self.assertEqual(out[1], ("計測してから直す習慣", "再現ノウハウ"))
         self.assertEqual(len(out), 2)
 
-    def test_append_themes_adds_auto_unconfirmed_todo(self):
+    def test_append_themes_adds_auto_unconfirmed_todo_with_blank_slug(self):
         new_text, added = cp.append_themes(SAMPLE, [("新テーマA", "設計思想")])
         self.assertEqual(added, 1)
         themes = {t.title: t for t in cp.parse_themes(new_text)}
@@ -127,6 +141,7 @@ class TestPureLogic(unittest.TestCase):
         self.assertEqual(themes["新テーマA"].source, "自動")
         self.assertEqual(themes["新テーマA"].review, "未確認")
         self.assertEqual(themes["新テーマA"].progress, "未着手")
+        self.assertEqual(themes["新テーマA"].slug, "")  # 自動補充は slug 空欄
 
     def test_append_themes_dedupes_existing_and_within_batch(self):
         new_text, added = cp.append_themes(SAMPLE, [
@@ -135,7 +150,6 @@ class TestPureLogic(unittest.TestCase):
             ("新テーマA", "設計思想"),         # バッチ内重複 → 1回だけ
         ])
         self.assertEqual(added, 1)
-        # テーブルとして再パースできる（壊れていない）。
         self.assertEqual(len(cp.parse_themes(new_text)), len(cp.parse_themes(SAMPLE)) + 1)
 
 
@@ -158,20 +172,23 @@ class TestDriver(unittest.TestCase):
     def test_empty_guard_when_no_eligible(self):
         with open(self.themes_path, "w", encoding="utf-8") as f:
             f.write(
-                "| テーマ名 | 種類 | 出所 | レビュー | 進捗 |\n"
-                "|---|---|---|---|---|\n"
-                "| a | k | 自動 | 却下 | 未着手 |\n")
+                "| テーマ名 | 種類 | 出所 | レビュー | 進捗 | slug |\n"
+                "|---|---|---|---|---|---|\n"
+                "| a | k | 自動 | 却下 | 未着手 | a |\n")
         self.assertEqual(
             cp.run(self.themes_path, self.drafts, mode="plan",
                    today=dt.date(2026, 6, 27)), 0)
 
-    def test_write_creates_draft_and_marks_done(self):
+    def test_write_uses_slug_column_in_filename_and_marks_done(self):
         body_path = os.path.join(self.tmp.name, "body.md")
         with open(body_path, "w", encoding="utf-8") as f:
             f.write("# タイトル\n本文\n")
         rc = cp.run(self.themes_path, self.drafts, mode="write",
                     body_file=body_path, today=dt.date(2026, 6, 27))
         self.assertEqual(rc, 0)
+        # slug 列が優先され、ファイル名が人手可読になる。
+        self.assertTrue(os.path.exists(
+            os.path.join(self.drafts, "2026-06-27-notion-external-memory.md")))
         # 進捗が更新され、次の select は別テーマ（未確認の自動テーマ）。
         with open(self.themes_path, encoding="utf-8") as f:
             nxt = cp.select_next(cp.parse_themes(f.read()))
